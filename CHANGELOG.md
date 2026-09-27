@@ -5,6 +5,10 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Consolidated the standalone MDC-NG helper scripts under `mdcng/` and the
+  X-Idol lookup/copy tools under `xidol/` in this repository. The previous
+  `homelab_mdc_sites_tool` repository is retained unchanged as a recovery copy.
+
 - Added a Semaphore deployment playbook for the isolated Emby `metatube2`
   service with preserved-container checks, live endpoint verification, and
   automatic image rollback on post-deploy failure.

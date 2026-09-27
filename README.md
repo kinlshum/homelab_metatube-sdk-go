@@ -12,6 +12,13 @@ Metadata Tube SDK in Golang.
 
 - [MetaTube video and actor enrichment trace tabs](docs/METATUBE_ENRICHMENT_TRACE_TODO.md)
 
+## Homelab CLI tools
+
+- [MDC-NG helpers](mdcng/README.md) operate the existing remote MDC-NG Docker
+  service; they do not define or build its container stack.
+- [X-Idol CLI helpers](xidol/README.md) look up paired video codes and safely
+  create optional filename aliases.
+
 ## Contents
 
 - [MetaTube SDK Go](#metatube-sdk-go)

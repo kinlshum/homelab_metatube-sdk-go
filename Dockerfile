@@ -8,7 +8,7 @@ RUN apk add --update --no-cache --no-progress make git \
 
 FROM alpine:latest
 LABEL org.opencontainers.image.licenses=Apache-2.0
-LABEL org.opencontainers.image.source="https://github.com/kinlshum/metatube-sdk-go"
+LABEL org.opencontainers.image.source="https://github.com/kinlshum/homelab_metatube-sdk-go"
 
 COPY --from=builder /src/build/metatube-server .
 

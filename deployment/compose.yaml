@@ -222,7 +222,9 @@ services:
   metatube2:
     image: kinlshum/metatube-server-providers:emby
     build:
-      context: https://github.com/kinlshum/metatube-sdk-go.git#codex/mdcng-fc2cmadb-providers
+      context: https://github.com/kinlshum/homelab_metatube-sdk-go.git#codex/mdcng-fc2cmadb-providers
+      args:
+        BUILDKIT_CONTEXT_KEEP_GIT_DIR: "1"
     container_name: metatube2
     restart: unless-stopped
     environment:

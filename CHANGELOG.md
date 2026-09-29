@@ -5,17 +5,6 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
-- Added on-demand, 30-minute-bounded actor service-log context in the actor
-  tab, restricted to approved application/environment/service origins. Context lines are
-  labeled uncorrelated; the selected trace can supply a nearby search window.
-  The panel reports source availability and at-limit/unknown-total results
-  without treating missing lines as proof that a workflow did not run. Docker
-  lines without a server field show host attribution as unverified.
-- Corrected Graylog query grouping so correlation alternatives cannot bypass
-  service, component, provider, level, or text filters. Malformed correlation
-  IDs now fail closed. Nested JSON detail arrays receive the same secret
-  redaction and depth bounds as maps.
-
 - Added a Semaphore deployment playbook for the isolated Emby `metatube2`
   service with preserved-container checks, live endpoint verification, and
   automatic image rollback on post-deploy failure.
@@ -61,6 +50,22 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 - Made enrichment-trace checkboxes more visible and added Ctrl/Cmd-click
   individual row selection plus Shift-click range selection. Ordinary row
   clicks continue to expand trace details.
+
+## 2026.09.28.1 — deployed to Admin1 2026-09-29
+
+- Added on-demand, 30-minute-bounded actor service-log context in the actor
+  tab, restricted to approved application/environment/service origins. Context
+  lines are labeled uncorrelated; the selected trace can supply a nearby search
+  window. The panel reports source availability and at-limit/unknown-total
+  results without treating missing lines as proof that a workflow did not run.
+  Docker lines without a server field show host attribution as unverified.
+- Corrected Graylog query grouping so correlation alternatives cannot bypass
+  service, component, provider, level, or text filters. Malformed correlation
+  IDs now fail closed. Nested JSON detail arrays receive the same secret
+  redaction and depth bounds as maps.
+- Admin1 deployed from `0d322bc`; Admin2, Emby and both stacks' dependencies
+  were not restarted. See the release and deployment logs for immutable build
+  identifiers, verification and rollback.
 
 ## custom-2026.09.19.6 — 2026-09-20
 

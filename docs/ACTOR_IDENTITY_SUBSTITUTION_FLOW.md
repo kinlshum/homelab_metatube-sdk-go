@@ -143,9 +143,12 @@ are review evidence, not guessed corrections or automatic alias imports.
 The app candidate places `# needs review` above a group, never inside its name
 or INI value, and preserves unsaved drafts during refresh.
 
-App integration/deployment remains under coordinator review. External-writer
-revision guards passed disposable PostgreSQL tests but are not yet deployed.
-The UI must return final revisions after alias writes and reject stale drafts.
+JAV Master **2.1.72**, release commit `ca8413a`, is now live with scoped canonical
+actor routing and review controls verified. External-writer revision guards are
+deployed; installed definitions match the disposable-tested version and actor
+data fingerprints remain unchanged. All 34 actor backend tests passed without
+skips, alongside 11 browser tests. Save responses return final revisions after
+alias writes; stale drafts are rejected and unsaved edits survive refresh.
 **Saving is still not automatic publication.** A publish-only durable job is
 needed: calling Identify/enrichment again after an editor Save can overwrite
 manual corrections. The watcher outage, held backlog, manual identity protection,

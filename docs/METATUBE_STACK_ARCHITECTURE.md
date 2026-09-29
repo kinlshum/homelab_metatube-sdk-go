@@ -139,10 +139,10 @@ Windmill.
   11 stages, new-path HTTP 404. Watcher still targets `.170:8001` (connection
   refused), with seven jobs pending and held from replay. Full deployed script
   equivalence is not verified; do not reconnect/replay without a reviewed plan.
-- Actor Editor unification is in progress: canonical `jav_actor_db` now has
+- Actor Editor shared-DB rollout is live in JAV Master 2.1.72: `jav_actor_db` has
   editor compatibility schema and 86 separate review findings; actor identities
-  and mappings are unchanged. The actor-only app routing/review UI and revision
-  guards are still deployment gates. Save-to-DB must not be shown as applied to
+  and mappings are unchanged. Actor-only routing/review UI and revision guards
+  are deployed and verified. Save-to-DB must not be shown as applied to
   Emby. See [current flow checkpoint](ACTOR_IDENTITY_SUBSTITUTION_FLOW.md#actor-editor-unification-checkpoint-2026-09-29).
 - Admin1 is release `2026.09.28.1`, commit `0d322bc`, deployed 2026-09-29.
   Admin2 was intentionally unchanged by that deployment. Do not infer matching

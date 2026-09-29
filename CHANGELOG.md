@@ -7,8 +7,9 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 - Documentation (2026-09-29): recorded Actor Editor/shared-DB rollout checkpoint,
   verified compatibility schema and review-note writes, unchanged mapping hashes,
-  and the blocked watcher endpoint/backlog. Distinguished tested revision guards
-  and app candidates from deployed functionality; Save-to-Emby remains pending.
+  and the blocked watcher endpoint/backlog. Updated final evidence for deployed
+  JAV Master 2.1.72 canonical actor routing/review UI and revision guards;
+  Save-to-Emby remains pending.
   No SDK release or container deployment in this documentation change.
 
 - Documentation (2026-09-29): refreshed actor stack/host map and full

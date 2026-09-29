@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -87,6 +88,33 @@ func TestSanitizeDetailsDepthAndSizeBounded(t *testing.T) {
 	}
 	got = SanitizeDetails(wide)
 	assert.LessOrEqual(t, len(got), 41, "detail maps are capped")
+}
+
+func TestSanitizeDetailsRecursesThroughJSONArrays(t *testing.T) {
+	input := map[string]any{"steps": []any{map[string]any{"api_key": "secret-in-array", "name": "ok"}}}
+	clean := SanitizeDetails(input)
+	encoded, err := json.Marshal(clean)
+	assert.NoError(t, err)
+	assert.NotContains(t, string(encoded), "secret-in-array")
+	assert.Contains(t, string(encoded), Redacted)
+
+	wide := make([]any, 40)
+	for index := range wide {
+		wide[index] = map[string]any{"password": "secret-password"}
+	}
+	clean = SanitizeDetails(map[string]any{"array": wide})
+	items, ok := clean["array"].([]any)
+	assert.True(t, ok)
+	assert.Len(t, items, 20)
+	encoded, err = json.Marshal(clean)
+	assert.NoError(t, err)
+	assert.NotContains(t, string(encoded), "secret-password")
+
+	deep := map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": map[string]any{"password": "secret-deep"}}}}}
+	encoded, err = json.Marshal(SanitizeDetails(deep))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(encoded), "secret-deep")
+	assert.Contains(t, string(encoded), `"truncated":true`)
 }
 
 func TestIsSensitiveKey(t *testing.T) {

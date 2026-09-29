@@ -898,6 +898,24 @@ instrumentation entries (`engine/image.go`, translation stages, FlareSolverr
 solve/session/error events, retries/challenges/parse errors/cancellations), the
 Windmill trace helper, the Emby plugin reporting, and mobile polish.
 
+## Actor stack log visibility — 2026-09-28
+
+The actor tab now has an on-demand, Graylog-backed **Related service logs**
+panel. It searches a server-owned list of actor service origins for at most 30
+minutes and 500 returned lines. Selecting a trace seeds its actor name and a
+nearby time window. These are contextual, uncorrelated lines; a matching name
+or time is not evidence that a particular Windmill publication run wrote or
+loaded `JAV-ACTOR-SUB.ini`. Exact trace/step logs remain separate. A result at
+the Graylog cap says it may be incomplete, and a zero-result source remains
+unverified rather than healthy.
+
+Still required for complete end-to-end actor publication tracing: correlated
+Windmill module/job events, watcher/browser/resolver/bridge coverage, durable
+producer delivery, deployment/config readback evidence, and proof that the
+active Emby plugin loaded and applied the effective substitution map. These
+need their respective Windmill, actor DB/bridge, and plugin owners; the Admin
+log panel does not create their missing telemetry.
+
 ## Next Admin UX work — handed off 2026-09-19
 
 The detailed, implementation-ready specification is

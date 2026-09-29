@@ -5,6 +5,17 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Added on-demand, 30-minute-bounded actor service-log context in the actor
+  tab, restricted to approved application/environment/service origins. Context lines are
+  labeled uncorrelated; the selected trace can supply a nearby search window.
+  The panel reports source availability and at-limit/unknown-total results
+  without treating missing lines as proof that a workflow did not run. Docker
+  lines without a server field show host attribution as unverified.
+- Corrected Graylog query grouping so correlation alternatives cannot bypass
+  service, component, provider, level, or text filters. Malformed correlation
+  IDs now fail closed. Nested JSON detail arrays receive the same secret
+  redaction and depth bounds as maps.
+
 - Added a Semaphore deployment playbook for the isolated Emby `metatube2`
   service with preserved-container checks, live endpoint verification, and
   automatic image rollback on post-deploy failure.

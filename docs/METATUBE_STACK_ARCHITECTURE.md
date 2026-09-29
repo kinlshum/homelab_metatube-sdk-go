@@ -15,9 +15,9 @@ flowchart LR
   EMBY["Emby\n192.168.10.151:8096"] --> MT2["MetaTube 2\n192.168.10.167:8080\nmetatube-admin2"]
   WMAPP["Emby Windmill API\n192.168.10.170:7810"] --> WM["Windmill\nwindmill.madtechinc.com/api\nLAN :8001"]
   WMAPP --> EMBY
-  WM --> WMPG["Windmill PostgreSQL\n192.168.10.170:5434"]
+  WM --> WMPG["Windmill PostgreSQL\n192.168.10.150:5434"]
 
-  subgraph KRAKEN["Kraken / Unraid Docker host — 192.168.10.170"]
+  subgraph KRAKEN["Kraken Docker host — 192.168.10.170"]
     MT1 --> P1["provider-bridge\nprivate :9210\npublic diagnostic :9210"]
     P1 --> FS1["FlareSolverr\nprivate :8191\npublic diagnostic :8191"]
     MT1 --> PG1["metatube-postgres\nPostgreSQL 15"]
@@ -37,8 +37,8 @@ flowchart LR
 
 | Host | Role | Relevant locations/endpoints |
 | --- | --- | --- |
-| `192.168.10.170` (`Kraken`) | Docker host for the complete MetaTube and Windmill application stack | MetaTube Compose: `/mnt/cache_nvme_apps/appdata/metatube-stack`; Windmill data: `/mnt/cache_nvme_apps/appdata/windmill`; Emby Windmill app: `/mnt/cache_nvme_apps/appdata/emby-windmill-app`; Windmill UI/API is published as `:8001`; Emby Windmill API is `:7810` |
-| `192.168.10.150` (`Unraid`) | Semaphore deployment controller | Semaphore UI `:3000`; runs the guarded MetaTube deployment tasks against Kraken |
+| `192.168.10.170` (`Kraken`) | Docker host for MetaTube, actor-side services, and Emby Windmill app | MetaTube Compose: `/mnt/cache_nvme_apps/appdata/metatube-stack`; Emby Windmill API is `:7810` |
+| `192.168.10.150` (`Unraid`) | Windmill and Semaphore host | Windmill container `windmill-1` serves `:8001`; Windmill PostgreSQL serves `:5434`; Semaphore UI `:3000` runs guarded MetaTube deployment tasks against Kraken |
 | `192.168.10.151` | Emby server | `http://192.168.10.151:8096`; the Emby plugin calls MetaTube2 for metadata |
 | `192.168.10.155` (`graylog1`) | Application-log Graylog LXC/service | `https://graylog1.madtechinc.com`; MetaTube GELF input `:12203`; search API `:9000` |
 | `192.168.10.153` (`graylog2`) | System/syslog Graylog LXC/service | `https://graylog2.madtechinc.com`; do not use this endpoint for MetaTube application GELF |
@@ -55,14 +55,12 @@ flowchart LR
 | `metatube2-postgres` | MetaTube2 PostgreSQL 15 | `/mnt/user/appdata/metatube2/postgres` |
 | `metatube2-provider-bridge` | Isolated provider adapter for Emby | diagnostic host port `9212`; state `./provider-bridge2/state`; uses `flaresolverr2:8191` |
 | `metatube2-flaresolverr` | Isolated browser solver for Emby | diagnostic host port `8192` (container port `8191`) |
-| `windmill` | Windmill workflow server | LAN `192.168.10.170:8001`; public API base `http://windmill.madtechinc.com/api`; data/cache under `/mnt/cache/appdata/windmill` and `/mnt/cache_nvme_apps/appdata/windmill` |
 | `emby-windmill-api` / `emby-windmill-app` | Thin Emby/Windmill orchestration API and UI | host port `192.168.10.170:7810`; uses `WINDMILL_URL=http://windmill.madtechinc.com/api` and the `admins` workspace |
 
 ### Windmill PostgreSQL note
 
-The live Windmill container is configured with a PostgreSQL endpoint at
-`192.168.10.170:5434` (credentials are intentionally not documented). This is
-the Windmill database on the Kraken/Unraid side of the deployment. The two
+The live Windmill container runs on Unraid with PostgreSQL at
+`192.168.10.150:5434` (credentials are intentionally not documented). The two
 MetaTube PostgreSQL containers are separate databases and must not be reused by
 Windmill.
 
@@ -92,5 +90,5 @@ Windmill.
   bridge health, FlareSolverr health, Windmill `/api`, and the Graylog1 GELF
   input before declaring the stack healthy.
 
-*Last verified against the checked-in Compose file and live Kraken container
-inventory on 2026-09-23.*
+*Windmill placement updated from read-only Kraken and Unraid container inventory
+on 2026-09-28. Other service details retain their prior 2026-09-23 verification.*

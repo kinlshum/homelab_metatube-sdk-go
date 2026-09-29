@@ -47,6 +47,14 @@ func (b *NativeBackend) Search(_ context.Context, query Query) Result {
 		Status:     "ok",
 		Effective:  query,
 		Retention:  NativeRetention,
+		TotalKnown: true,
+	}
+	if query.InvalidCorrelation {
+		result.Available = false
+		result.Status = "invalid_query"
+		result.Detail = "Invalid correlation ID"
+		result.Lines = []Line{}
+		return result
 	}
 
 	entries := b.Entries(0)
@@ -69,6 +77,8 @@ func (b *NativeBackend) Search(_ context.Context, query Query) Result {
 		lines = lines[:query.Limit]
 	}
 	result.Lines = lines
+	result.ReturnedCount = len(lines)
+	result.AtLimit = len(lines) >= query.Limit
 	return result
 }
 
@@ -125,15 +135,10 @@ func parseStatus(value string) (int, error) {
 
 // nativeMatches applies the shared filters to a candidate line.
 func nativeMatches(line Line, raw string, query Query) bool {
-	if len(query.TraceIDs) > 0 {
-		if !matchesAnyTraceID(raw, query.TraceIDs) {
-			return false
-		}
-	}
-	if query.RunID != "" && !strings.Contains(raw, query.RunID) {
-		return false
-	}
-	if query.WindmillJobID != "" && !strings.Contains(raw, query.WindmillJobID) {
+	if (len(query.TraceIDs) > 0 || query.RunID != "" || query.WindmillJobID != "") &&
+		!matchesAnyTraceID(raw, query.TraceIDs) &&
+		(query.RunID == "" || !strings.Contains(raw, query.RunID)) &&
+		(query.WindmillJobID == "" || !strings.Contains(raw, query.WindmillJobID)) {
 		return false
 	}
 	if query.Provider != "" && !strings.EqualFold(line.Provider, query.Provider) {

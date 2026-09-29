@@ -88,6 +88,7 @@
     .log-section{border-top:1px solid #16241c}
     .log-section>.head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:7px 11px;background:#0e1a13}
     .log-section .empty{padding:8px 11px;color:var(--muted);font-size:12px}
+    .actor-context{border-bottom:1px solid var(--line);padding:14px 18px;background:#102119}.actor-context h2{margin:0 0 4px;font-size:17px}.actor-context p{margin-bottom:10px}.actor-context .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.actor-context input{min-width:180px;flex:1}.actor-context select{padding:9px;background:#0d1b15;color:var(--text);border:1px solid var(--line);border-radius:7px}.actor-context button{padding:8px 12px}.actor-context .log-body{max-height:420px;overflow:auto;background:#080d0b;font:12px/1.55 ui-monospace,SFMono-Regular,monospace}.actor-context .coverage{margin-top:8px;line-height:1.8}
     .deep-link{color:var(--green2);font-size:12px;text-decoration:none}
     .trace-select{width:38px;text-align:center}.trace-select input{width:18px;height:18px;cursor:pointer;accent-color:var(--green);outline:1px solid #8ca99a;outline-offset:1px;border-radius:2px}
     tr.trace-marked>td{background:#214633}tr.trace-marked:hover>td{background:#28543d}
@@ -146,6 +147,10 @@
   <section id="traceActorPage" class="card page hidden">
     <div class="intro"><h1>MetaTube actor enrichment traces</h1><p>Structured actor identify and enrichment timelines: client, providers, throttle waits, cache, fallback, image injection, selection, Windmill, and Emby. Actor traces never appear in the video tab. <span class="live">Refreshes every 5 seconds while visible</span></p></div>
     <div class="ingestion-strip" data-ingestion="actor"></div>
+    <section class="actor-context" id="actorContext"><h2>Related service logs <span class="badge warn">uncorrelated</span></h2><p class="note">Searches bounded Graylog context across approved actor services. A name and time match does not prove a line belongs to this actor or publication run. Empty search text shows all lines in the window.</p>
+      <div class="controls"><input id="actorContextQ" type="text" maxlength="100" placeholder="Actor name or literal text (optional)"><select id="actorContextService"><option value="">All actor services</option><option value="metatube1">MetaTube 1</option><option value="metatube2">MetaTube 2</option><option value="bridge1">Provider bridge 1</option><option value="bridge2">Provider bridge 2</option><option value="resolver">Actor resolver</option><option value="watcher">Identify watcher</option><option value="browser">Actor browser</option><option value="windmill">Windmill</option><option value="emby">Emby</option><option value="actor-db">Actor database</option><option value="flaresolverr">FlareSolverr</option><option value="flaresolverr2">FlareSolverr 2</option></select><select id="actorContextWindow"><option value="5">Last 5 minutes</option><option value="30">Last 30 minutes</option><option value="trace">Selected trace ±2 minutes</option></select><button id="actorContextPrev" class="tab" title="Previous time window">‹</button><button id="actorContextNext" class="tab" title="Next time window">›</button><button id="actorContextSearch">Search logs</button></div>
+      <div id="actorContextStatus" class="note" style="padding:9px 0">Search on demand; raw logs do not auto-refresh.</div><div id="actorContextResults" class="log-body"></div><div id="actorContextCoverage" class="coverage note">Configured source scope; live collection is unverified until a search returns lines.</div>
+    </section>
     <div class="trace-toolbar">
       <input type="text" id="traceActorQ" placeholder="Search name, provider ID, or trace ID…">
       <input type="text" id="traceActorClient" placeholder="Client or IP">
@@ -369,7 +374,7 @@
     runState.errors=errorEntries;
     events.forEach(event=>{const key=event.component||'metatube';totals[key]=(totals[key]||0)+Number(event.duration_ms||0)});
     const summary=Object.entries(totals).filter(entry=>entry[1]>0).map(entry=>`${entry[0]} ${traceMs(entry[1])}`).join(' · ');
-    return `<div class="drawer-head"><h2>${esc(trace.operation||'trace')} · ${esc(trace.kind||kind)}</h2>${traceStatusBadge(trace.status)} ${traceDownstreamMark(downstream)}<span class="grow"></span><button data-action="copy">Copy trace ID</button><button data-action="export">Export JSON</button><button data-action="logs">Show in LOGS</button><button data-action="delete">Delete</button><button data-action="close" class="tab">Close</button></div>
+    return `<div class="drawer-head"><h2>${esc(trace.operation||'trace')} · ${esc(trace.kind||kind)}</h2>${traceStatusBadge(trace.status)} ${traceDownstreamMark(downstream)}<span class="grow"></span>${kind==='actor'?'<button data-action="related">Related service logs</button>':''}<button data-action="copy">Copy trace ID</button><button data-action="export">Export JSON</button><button data-action="logs">Show in LOGS</button><button data-action="delete">Delete</button><button data-action="close" class="tab">Close</button></div>
       ${errorIndexHtml(trace,errorEntries)}
       <div class="trace-meta">
         ${traceMeta('Trace ID',`<span class="mono">${esc(trace.trace_id)}</span>`)}
@@ -404,6 +409,7 @@
       drawer.querySelector('[data-action="copy"]').addEventListener('click',()=>copyTraceId(traceId,kind));
       drawer.querySelector('[data-action="export"]').addEventListener('click',()=>window.open('/admin/api/traces/'+encodeURIComponent(traceId)+'/export','_blank'));
       drawer.querySelector('[data-action="logs"]').addEventListener('click',()=>showTraceInLogs(traceId));
+      if(kind==='actor')drawer.querySelector('[data-action="related"]').addEventListener('click',()=>showActorContext(trace));
       drawer.querySelector('[data-action="delete"]').addEventListener('click',()=>deleteTrace(kind,traceId));
       drawer.querySelector('[data-action="close"]').addEventListener('click',()=>closeTraceDrawer(kind));
       // Error index focus controls: highlight the chosen entry, then jump to its
@@ -567,6 +573,43 @@
     return `<div class="log-line ${line.level==='error'?'err':''}"><span class="at">${new Date(line.at).toLocaleTimeString()}</span>
       <span class="source-badge ${esc(line.source||'native')}">${esc(line.badge||line.source||'')}</span>
       <span>${esc(line.message||'')}${origin?` <span class="note">[${esc(origin)}]</span>`:''}${meta?` <span class="note">${esc(meta)}</span>`:''}</span></div>`}
+  const actorContextState={trace:null,until:null,effective:null,request:0,controller:null};
+  function showActorContext(trace){actorContextState.trace=trace;actorContextState.until=null;actorContextState.effective=null;
+    document.querySelector('#actorContextQ').value=trace.query||'';
+    document.querySelector('#actorContextWindow').value='trace';
+    document.querySelector('#actorContext').scrollIntoView({behavior:'smooth',block:'start'});
+    loadActorContext()}
+  function actorContextBounds(){const mode=document.querySelector('#actorContextWindow').value;
+    if(mode==='trace'&&actorContextState.trace){const trace=actorContextState.trace,start=new Date(trace.started_at).getTime(),end=new Date(trace.completed_at||trace.started_at).getTime();
+      if(Number.isFinite(start)&&Number.isFinite(end))return{since:new Date(start-120000),until:new Date(Math.min(Date.now(),end+120000))}}
+    const minutes=mode==='30'?30:5,until=actorContextState.until||new Date();
+    return{since:new Date(until.getTime()-minutes*60000),until}}
+  function moveActorContext(direction){const requested=actorContextBounds(),bounds=actorContextState.effective||{since:new Date(Math.max(requested.since.getTime(),requested.until.getTime()-30*60000)),until:requested.until};
+    const from=new Date(bounds.since).getTime(),to=new Date(bounds.until).getTime(),span=Math.min(30*60000,to-from);
+    actorContextState.trace=null;actorContextState.effective=null;actorContextState.until=new Date(Math.min(Date.now(),direction<0?from:to+span));
+    if(document.querySelector('#actorContextWindow').value==='trace')document.querySelector('#actorContextWindow').value='30';
+    loadActorContext()}
+  async function loadActorContext(){const status=document.querySelector('#actorContextStatus'),results=document.querySelector('#actorContextResults'),coverage=document.querySelector('#actorContextCoverage');
+    if(actorContextState.controller)actorContextState.controller.abort();
+    const controller=new AbortController(),request=++actorContextState.request;actorContextState.controller=controller;status.textContent='Searching approved actor services…';
+    const bounds=actorContextBounds(),params=new URLSearchParams({q:document.querySelector('#actorContextQ').value.trim(),service:document.querySelector('#actorContextService').value,since:bounds.since.toISOString(),until:bounds.until.toISOString(),limit:'200'});
+    try{const response=await fetch('/admin/api/actor-stack-logs?'+params.toString(),{signal:controller.signal});const payload=await response.json();if(request!==actorContextState.request)return;if(!response.ok)throw Error(payload.error||`HTTP ${response.status}`);
+      const result=payload.result||{},lines=result.lines||[],effective=payload.effective||{},from=effective.since||bounds.since,to=effective.until||bounds.until;
+      actorContextState.effective={since:new Date(from),until:new Date(to)};
+      const count=`${Number(result.returned_count||0)} returned${result.total_known?` of ${Number(result.match_count||0)} matches`:'; total unknown'}`;
+      const limit=result.at_limit?' At limit; results may be incomplete. Narrow the time range or select a service.':'';
+      status.textContent=`${result.available?'Graylog available':(result.detail||'Graylog unavailable')} · ${count} · ${new Date(from).toLocaleString()} → ${new Date(to).toLocaleString()}.${limit}`;
+      const link=result.external_search_url?` <a class="deep-link" href="${esc(result.external_search_url)}" target="_blank" rel="noopener">Open scoped search in Graylog</a>`:'';
+      results.innerHTML=lines.length?lines.map(logLineHtml).join('')+link:`<div class="empty">${esc(result.available?'No matching retained lines; collection or execution is not proven.':(result.detail||'Source unavailable.'))}${link}</div>`;
+      const seen=new Set(lines.map(line=>`${line.application}|${line.environment}|${line.service}`));
+      coverage.innerHTML=`<strong>Configured source scope:</strong> ${(payload.scope||[]).map(item=>{const found=seen.has(`${item.application}|${item.environment}|${item.service}`);return `<span class="badge ${found?'ok':'idle'}" title="${found?'Present in returned lines':'No evidence in returned lines; collection unverified'}">${esc(item.label)} · ${found?'seen':'unverified'}${found&&!item.server?' (host unverified)':''}</span>`}).join(' ')}<div>Only sources with returned lines are marked seen. Docker lines without a server field use an approved application/service scope; their host is unverified. This is not a collection heartbeat or publication proof.</div>`;
+    }catch(error){if(request!==actorContextState.request||error.name==='AbortError')return;status.textContent='Related service log search failed: '+error.message;results.textContent='';coverage.textContent='Source coverage unavailable.'}
+    finally{if(request===actorContextState.request)actorContextState.controller=null}}
+  document.querySelector('#actorContextSearch').addEventListener('click',loadActorContext);
+  document.querySelector('#actorContextQ').addEventListener('keydown',event=>{if(event.key==='Enter')loadActorContext()});
+  document.querySelector('#actorContextWindow').addEventListener('change',()=>{actorContextState.until=null;actorContextState.effective=null;if(document.querySelector('#actorContextWindow').value!=='trace')actorContextState.trace=null});
+  document.querySelector('#actorContextPrev').addEventListener('click',()=>moveActorContext(-1));
+  document.querySelector('#actorContextNext').addEventListener('click',()=>moveActorContext(1));
   function stepTraceLines(stepEl){const traceId=stepEl.dataset.trace,group=runState.group||{};
     const from=stepEl.dataset.from?new Date(stepEl.dataset.from).getTime():0;
     const until=stepEl.dataset.until?new Date(stepEl.dataset.until).getTime():0;
@@ -575,7 +618,7 @@
       if(from&&at<from)return false;if(until&&at>until)return false;return true}).map(event=>({
       source:'trace',badge:'TRACE',at:event.at,level:event.level,component:event.component,stage:event.stage,provider:event.provider,
       message:(event.message||'')+(event.details&&Object.keys(event.details).length?` ${JSON.stringify(event.details)}`:'')}))}
-  function logSectionHtml(title,source,result,lines,hidden,note){const status=result?`${esc(result.status||'')}${result.truncated?' · truncated':''}${result.match_count?` · ${Number(result.match_count)} match(es)`:''}`:'';
+  function logSectionHtml(title,source,result,lines,hidden,note){const status=result?`${esc(result.status||'')}${result.truncated?' · truncated':''}${result.at_limit?' · at limit; may be incomplete':''}${result.total_known?` · ${Number(result.match_count||0)} match(es)`:` · ${Number(result.returned_count||0)} returned; total unknown`}`:'';
     const head=`<div class="head"><span class="source-badge ${esc(source)}">${esc(title)}</span><span class="note">${status}</span>
       <span class="note">${esc((result&&result.retention)||'')}</span>${note||''}${hidden?`<span class="note">· ${hidden} duplicate line(s) hidden</span>`:''}</div>`;
     const body=lines.length?lines.map(logLineHtml).join(''):`<div class="empty">${esc((result&&result.detail)||'No matching lines in this window.')}</div>`;

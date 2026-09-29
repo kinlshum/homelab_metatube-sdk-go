@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,6 +36,74 @@ func parseLogQuery(c *gin.Context) logsearch.Query {
 		query.Until = parseTraceTime(value)
 	}
 	return query.Normalize()
+}
+
+// Actor log context is deliberately narrower than general Graylog search. The
+// Default Stream contains unrelated homelab services, so the browser may only
+// choose from these server-owned origins. The expected host is inventory
+// context only where Docker records lack a server field; it is not proof of a
+// particular line's host.
+var actorLogOrigins = []struct {
+	Key, Label, ExpectedHost string
+	Origin                   logsearch.Origin
+}{
+	{"metatube1", "MetaTube 1 container", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube"}},
+	{"metatube1", "MetaTube 1 application", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube-server", Server: "kraken"}},
+	{"metatube2", "MetaTube 2", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube2"}},
+	{"bridge1", "Provider bridge 1", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube-provider-bridge"}},
+	{"bridge2", "Provider bridge 2", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube2-provider-bridge"}},
+	{"resolver", "Actor resolver", "kraken", logsearch.Origin{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-resolver"}},
+	{"watcher", "Actor identify watcher", "kraken", logsearch.Origin{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-identify-watcher"}},
+	{"browser", "Actor browser", "kraken", logsearch.Origin{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-browser"}},
+	{"windmill", "Windmill", "unraid", logsearch.Origin{Application: "windmill", Environment: "homelab", Service: "windmill-1"}},
+	{"emby", "Emby", "kraken", logsearch.Origin{Application: "emby", Environment: "homelab", Service: "EmbyServer"}},
+	{"actor-db", "Actor database", "kraken", logsearch.Origin{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-db-postgres"}},
+	{"flaresolverr", "FlareSolverr", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube-flaresolverr"}},
+	{"flaresolverr2", "FlareSolverr 2", "kraken", logsearch.Origin{Application: "metatube", Environment: "homelab", Service: "metatube2-flaresolverr"}},
+}
+
+func getActorStackLogs(searcher *logsearch.Searcher) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		now := time.Now().UTC()
+		until := now
+		if value := parseTraceTime(c.Query("until")); value != nil && value.Before(now) {
+			until = *value
+		}
+		since := until.Add(-5 * time.Minute)
+		if value := parseTraceTime(c.Query("since")); value != nil {
+			since = *value
+		}
+		if since.After(until) {
+			since = until.Add(-5 * time.Minute)
+		}
+		if since.Before(until.Add(-30 * time.Minute)) {
+			since = until.Add(-30 * time.Minute)
+		}
+		query := logsearch.Query{Text: c.Query("q"), Since: &since, Until: &until, Limit: 200}
+		if len([]rune(query.Text)) > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Search text is too long"})
+			return
+		}
+		if value := c.Query("limit"); value != "" {
+			if parsed, err := strconv.Atoi(value); err == nil {
+				query.Limit = parsed
+			}
+		}
+		selected := c.Query("service")
+		scope := make([]gin.H, 0, len(actorLogOrigins))
+		for _, item := range actorLogOrigins {
+			if selected == "" || selected == item.Key {
+				scope = append(scope, gin.H{"key": item.Key, "label": item.Label, "expected_host": item.ExpectedHost, "application": item.Origin.Application, "environment": item.Origin.Environment, "server": item.Origin.Server, "service": item.Origin.Service})
+				query.Origins = append(query.Origins, item.Origin)
+			}
+		}
+		if len(query.Origins) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unknown actor service"})
+			return
+		}
+		result := searcher.Search(c.Request.Context(), query, []logsearch.Source{logsearch.SourceGraylog})[0]
+		c.JSON(http.StatusOK, gin.H{"result": result, "scope": scope, "correlated": false, "effective": result.Effective})
+	}
 }
 
 // parseLogSources reads the requested sources, defaulting to every source.

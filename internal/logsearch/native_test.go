@@ -97,7 +97,8 @@ func TestQueryNormalizeBoundsAndSanitizes(t *testing.T) {
 	}.Normalize()
 
 	assert.Equal(t, []string{"trace-aaaa-1111", "trace-bbbb-2222"}, query.TraceIDs,
-		"duplicates and malformed IDs are dropped")
+		"duplicates and malformed IDs are removed from the normalized ID list")
+	assert.True(t, query.InvalidCorrelation, "a malformed ID must also fail the search closed")
 	assert.Equal(t, "spaced", query.Text)
 	assert.Equal(t, "error", query.Level)
 	assert.Equal(t, MaxSearchLimit, query.Limit)

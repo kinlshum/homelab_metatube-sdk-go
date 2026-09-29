@@ -94,6 +94,7 @@ func New(app *engine.Engine, v auth.Validator, options ...Option) *gin.Engine {
 	admin.POST("/api/provider-health/:provider/check", postProviderHealthCheck(app))
 	admin.GET("/api/logs", getAdminLogs(logs))
 	admin.GET("/api/logs/search", getAdminLogSearch(logs))
+	admin.GET("/api/actor-stack-logs", getActorStackLogs(logs))
 	admin.GET("/api/trace-runs/:runID", getTraceRun(app.TraceService()))
 	admin.GET("/api/gelf", getLogIngestion(settings.mirror))
 	admin.POST("/api/gelf/probe", postLogProbe(settings.mirror))

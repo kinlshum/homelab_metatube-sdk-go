@@ -59,16 +59,29 @@ const (
 // Query is the shared filter set for every log backend. The same query is used
 // for Native and Graylog so both react to one filter bar.
 type Query struct {
-	TraceIDs      []string   `json:"trace_ids,omitempty"`
-	RunID         string     `json:"run_id,omitempty"`
-	WindmillJobID string     `json:"windmill_job_id,omitempty"`
-	Text          string     `json:"q,omitempty"`
-	Component     string     `json:"component,omitempty"`
-	Level         string     `json:"level,omitempty"`
-	Provider      string     `json:"provider,omitempty"`
-	Since         *time.Time `json:"since,omitempty"`
-	Until         *time.Time `json:"until,omitempty"`
-	Limit         int        `json:"limit"`
+	TraceIDs           []string   `json:"trace_ids,omitempty"`
+	RunID              string     `json:"run_id,omitempty"`
+	WindmillJobID      string     `json:"windmill_job_id,omitempty"`
+	Text               string     `json:"q,omitempty"`
+	Component          string     `json:"component,omitempty"`
+	Level              string     `json:"level,omitempty"`
+	Provider           string     `json:"provider,omitempty"`
+	Origins            []Origin   `json:"origins,omitempty"`
+	Since              *time.Time `json:"since,omitempty"`
+	Until              *time.Time `json:"until,omitempty"`
+	Limit              int        `json:"limit"`
+	InvalidCorrelation bool       `json:"-"`
+}
+
+// Origin is an approved Graylog origin. Some Docker log records have no server
+// field, so application/environment/service form the required legacy scope;
+// Server adds a host restriction where the collector actually supplies it.
+// Callers must supply origins server-side.
+type Origin struct {
+	Application string `json:"application"`
+	Environment string `json:"environment"`
+	Service     string `json:"service"`
+	Server      string `json:"server,omitempty"`
 }
 
 // Normalize bounds and trims the query before it reaches a backend.
@@ -80,13 +93,17 @@ func (q Query) Normalize() Query {
 	normalized.Provider = strings.TrimSpace(q.Provider)
 	normalized.RunID = trace.NormalizeID(q.RunID)
 	normalized.WindmillJobID = trace.NormalizeID(q.WindmillJobID)
-	// Only well-formed trace IDs are accepted; anything else is dropped so a
-	// hostile query cannot inject syntax into a backend.
+	normalized.InvalidCorrelation = q.InvalidCorrelation || (strings.TrimSpace(q.RunID) != "" && normalized.RunID == "") || (strings.TrimSpace(q.WindmillJobID) != "" && normalized.WindmillJobID == "")
+	// Reject malformed IDs instead of silently dropping the only restriction.
 	ids := make([]string, 0, len(q.TraceIDs))
 	seen := make(map[string]bool, len(q.TraceIDs))
 	for _, id := range q.TraceIDs {
 		clean := trace.NormalizeID(id)
-		if clean == "" || seen[clean] {
+		if clean == "" {
+			normalized.InvalidCorrelation = true
+			continue
+		}
+		if seen[clean] {
 			continue
 		}
 		seen[clean] = true
@@ -144,6 +161,9 @@ type Result struct {
 	Error             string     `json:"error,omitempty"`
 	Lines             []Line     `json:"lines"`
 	MatchCount        int        `json:"match_count"`
+	ReturnedCount     int        `json:"returned_count"`
+	TotalKnown        bool       `json:"total_known"`
+	AtLimit           bool       `json:"at_limit"`
 	Truncated         bool       `json:"truncated"`
 	Effective         Query      `json:"effective"`
 	LastSuccessAt     *time.Time `json:"last_success_at,omitempty"`

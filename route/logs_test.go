@@ -141,6 +141,28 @@ func TestLogSearchReturnsEverySourceSideBySide(t *testing.T) {
 	assert.True(t, service.Enabled())
 }
 
+func TestActorStackLogsAreBoundedToApprovedOrigins(t *testing.T) {
+	router, _ := newTraceTestRouter(t, nil)
+	request := doRequest(router, http.MethodGet, "/admin/api/actor-stack-logs?service=resolver&q=Jane&limit=9999", nil, nil)
+	require.Equal(t, http.StatusOK, request.Code, request.Body.String())
+	var payload struct {
+		Correlated bool `json:"correlated"`
+		Result     struct {
+			Effective logsearch.Query `json:"effective"`
+			Status    string          `json:"status"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(request.Body.Bytes(), &payload))
+	assert.False(t, payload.Correlated)
+	assert.Equal(t, logsearch.DefaultSearchLimit, payload.Result.Effective.Limit)
+	assert.Equal(t, []logsearch.Origin{{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-resolver"}}, payload.Result.Effective.Origins)
+	assert.LessOrEqual(t, payload.Result.Effective.Until.Sub(*payload.Result.Effective.Since), 30*time.Minute)
+	assert.Equal(t, "not_configured", payload.Result.Status)
+
+	bad := doRequest(router, http.MethodGet, "/admin/api/actor-stack-logs?service=unrelated-finance-stack", nil, nil)
+	assert.Equal(t, http.StatusBadRequest, bad.Code)
+}
+
 func unmarshalBody(recorder *httptest.ResponseRecorder, target any) error {
 	return json.Unmarshal(recorder.Body.Bytes(), target)
 }

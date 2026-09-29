@@ -32,6 +32,27 @@ func TestGraylogNotConfigured(t *testing.T) {
 	assert.False(t, half.Configured())
 }
 
+func TestGraylogQueryKeepsScopeOutsideCorrelationOR(t *testing.T) {
+	backend := NewGraylogBackend(GraylogConfig{})
+	query := backend.buildQuery(Query{
+		TraceIDs: []string{"trace-aaaa-1111", "trace-bbbb-2222"},
+		RunID:    "run-aaaa-1111", Component: "provider", Level: "error", Text: "Jane Actor",
+		Origins: []Origin{{Application: "jav_actor_db", Environment: "homelab", Service: "jav-actor-resolver"}, {Application: "windmill", Environment: "homelab", Service: "windmill-1", Server: "unraid"}},
+	}.Normalize())
+	assert.Contains(t, query, `(trace_id:"trace-aaaa-1111" OR trace_id:"trace-bbbb-2222" OR run_id:"run-aaaa-1111")`)
+	assert.Contains(t, query, `((application:"jav_actor_db" AND environment:"homelab" AND service:"jav-actor-resolver") OR (application:"windmill" AND environment:"homelab" AND service:"windmill-1" AND server:"unraid"))`)
+	assert.Contains(t, query, `) AND component:"provider" AND level:"error" AND "Jane Actor"`)
+	assert.NotContains(t, query, `component:"provider" OR`)
+}
+
+func TestInvalidCorrelationFailsClosed(t *testing.T) {
+	query := Query{TraceIDs: []string{"bad id!"}, RunID: "also bad!"}.Normalize()
+	assert.True(t, query.InvalidCorrelation)
+	assert.Empty(t, query.TraceIDs)
+	assert.Equal(t, "invalid_query", NewGraylogBackend(GraylogConfig{}).Search(context.Background(), query).Status)
+	assert.Equal(t, "invalid_query", NewNativeBackend().Search(context.Background(), query).Status)
+}
+
 func TestGraylogSearchSuccessAndRedaction(t *testing.T) {
 	var captured *http.Request
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -100,6 +121,21 @@ func TestGraylogSearchSuccessAndRedaction(t *testing.T) {
 	assert.Contains(t, result.ExternalSearchURL, "rangetype=absolute")
 	assert.Equal(t, 1, result.MatchCount)
 	assert.False(t, result.Truncated)
+	assert.Equal(t, 1, result.ReturnedCount)
+	assert.False(t, result.TotalKnown, "CSV has no full-match count")
+	assert.False(t, result.AtLimit)
+}
+
+func TestGraylogAtLimitDoesNotClaimCompleteness(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("timestamp,message\n2026-09-19T04:00:00.000Z,one line\n"))
+	}))
+	defer server.Close()
+	result := NewGraylogBackend(GraylogConfig{Enabled: true, APIURL: server.URL, Token: "t"}).Search(context.Background(), Query{Limit: 1})
+	assert.True(t, result.Available)
+	assert.True(t, result.AtLimit)
+	assert.False(t, result.TotalKnown)
+	assert.False(t, result.Truncated, "there is no evidence of extra lines")
 }
 
 func TestGraylogFailureModesDegradeCleanly(t *testing.T) {

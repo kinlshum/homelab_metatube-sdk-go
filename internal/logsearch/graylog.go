@@ -99,6 +99,14 @@ func (b *GraylogBackend) Search(ctx context.Context, query Query) Result {
 		Lines:      make([]Line, 0),
 		Retention:  "Durable; retention is managed by Graylog",
 	}
+	if result.Effective.Limit > b.cfg.MaxResults {
+		result.Effective.Limit = b.cfg.MaxResults
+	}
+	if query.InvalidCorrelation {
+		result.Status = "invalid_query"
+		result.Detail = "Invalid correlation ID"
+		return result
+	}
 
 	// Bound the requested range so one query can never scan an unbounded window.
 	since, until, clamped := b.cfg.ClampRange(query.Since, query.Until)
@@ -155,6 +163,9 @@ func (b *GraylogBackend) Search(ctx context.Context, query Query) Result {
 	}
 
 	result.Lines = payload.Lines
+	result.ReturnedCount = len(payload.Lines)
+	result.TotalKnown = payload.TotalKnown
+	result.AtLimit = len(payload.Lines) >= result.Effective.Limit
 	result.MatchCount = payload.Total
 	if result.MatchCount < len(payload.Lines) {
 		result.MatchCount = len(payload.Lines)
@@ -172,8 +183,9 @@ func (b *GraylogBackend) Search(ctx context.Context, query Query) Result {
 
 // graylogAnswer is the decoded answer of an absolute search.
 type graylogAnswer struct {
-	Lines []Line
-	Total int
+	Lines      []Line
+	Total      int
+	TotalKnown bool
 }
 
 // firstNonSpace returns the first non-whitespace byte of a peeked buffer.
@@ -196,7 +208,7 @@ func decodeGraylogJSON(body io.Reader, limit int) (graylogAnswer, error) {
 	decoder := json.NewDecoder(io.LimitReader(body, maxJSONAnswerBytes))
 	for {
 		envelope := struct {
-			TotalResults int `json:"total_results"`
+			TotalResults *int `json:"total_results"`
 			Messages     []struct {
 				Message map[string]any `json:"message"`
 			} `json:"messages"`
@@ -212,8 +224,11 @@ func decodeGraylogJSON(body io.Reader, limit int) (graylogAnswer, error) {
 			}
 			return graylogAnswer{}, err
 		}
-		if envelope.TotalResults > answer.Total {
-			answer.Total = envelope.TotalResults
+		if envelope.TotalResults != nil {
+			answer.TotalKnown = true
+			if *envelope.TotalResults > answer.Total {
+				answer.Total = *envelope.TotalResults
+			}
 		}
 		for _, wrapper := range envelope.Messages {
 			message := sanitizeGraylogFields(wrapper.Message)
@@ -345,35 +360,51 @@ func graylogValue(value string) string {
 // buildQuery produces a Graylog query string restricted to the configured stream
 // and the correlation IDs, with every value escaped for Graylog query syntax.
 func (b *GraylogBackend) buildQuery(query Query) string {
-	clauses := make([]string, 0, 8)
+	correlations := make([]string, 0, 8)
 	for _, traceID := range query.TraceIDs {
-		clauses = append(clauses, "trace_id:"+graylogValue(traceID))
+		correlations = append(correlations, "trace_id:"+graylogValue(traceID))
 	}
 	if query.RunID != "" {
-		clauses = append(clauses, "run_id:"+graylogValue(query.RunID))
+		correlations = append(correlations, "run_id:"+graylogValue(query.RunID))
 	}
 	if query.WindmillJobID != "" {
-		clauses = append(clauses, "windmill_job_id:"+graylogValue(query.WindmillJobID))
+		correlations = append(correlations, "windmill_job_id:"+graylogValue(query.WindmillJobID))
 	}
-	if query.Component != "" {
-		clauses = append(clauses, "component:"+graylogValue(query.Component))
-	}
-	if query.Provider != "" {
-		clauses = append(clauses, "provider:"+graylogValue(query.Provider))
-	}
-	if query.Level != "" {
-		clauses = append(clauses, "level:"+graylogValue(query.Level))
-	}
-
-	must := make([]string, 0, 3)
+	must := make([]string, 0, 8)
 	// The stream restriction is sent as the `streams` request parameter, which
 	// replaces the legacy `stream:` query clause in Graylog 7.
-	switch len(clauses) {
+	switch len(correlations) {
 	case 0:
 	case 1:
-		must = append(must, clauses[0])
+		must = append(must, correlations[0])
 	default:
-		must = append(must, "("+strings.Join(clauses, " OR ")+")")
+		must = append(must, "("+strings.Join(correlations, " OR ")+")")
+	}
+	if len(query.Origins) > 0 {
+		origins := make([]string, 0, len(query.Origins))
+		for _, origin := range query.Origins {
+			if origin.Application == "" || origin.Environment == "" || origin.Service == "" {
+				continue
+			}
+			parts := []string{"application:" + graylogValue(origin.Application), "environment:" + graylogValue(origin.Environment), "service:" + graylogValue(origin.Service)}
+			if origin.Server != "" {
+				parts = append(parts, "server:"+graylogValue(origin.Server))
+			}
+			origins = append(origins, "("+strings.Join(parts, " AND ")+")")
+		}
+		if len(origins) == 0 {
+			return "_id:\"no-approved-origin\""
+		}
+		must = append(must, "("+strings.Join(origins, " OR ")+")")
+	}
+	if query.Component != "" {
+		must = append(must, "component:"+graylogValue(query.Component))
+	}
+	if query.Provider != "" {
+		must = append(must, "provider:"+graylogValue(query.Provider))
+	}
+	if query.Level != "" {
+		must = append(must, "level:"+graylogValue(query.Level))
 	}
 	if query.Text != "" {
 		must = append(must, graylogValue(query.Text))

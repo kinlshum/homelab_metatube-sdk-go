@@ -139,8 +139,15 @@ func sanitize(value string) string {
 
 // SanitizeValue redacts or bounds a single detail value.
 func SanitizeValue(key string, value any) any {
+	return sanitizeValue(key, value, 0)
+}
+
+func sanitizeValue(key string, value any, depth int) any {
 	if IsSensitiveKey(key) {
 		return Redacted
+	}
+	if depth > 3 {
+		return "[truncated]"
 	}
 	switch typed := value.(type) {
 	case nil:
@@ -157,7 +164,16 @@ func SanitizeValue(key string, value any) any {
 		}
 		return values
 	case map[string]any:
-		return SanitizeDetails(typed)
+		return sanitizeDetails(typed, depth+1)
+	case []any:
+		values := make([]any, 0, min(len(typed), 20))
+		for _, item := range typed {
+			if len(values) >= 20 {
+				break
+			}
+			values = append(values, sanitizeValue("", item, depth+1))
+		}
+		return values
 	default:
 		return value
 	}
@@ -184,7 +200,7 @@ func sanitizeDetails(details map[string]any, depth int) map[string]any {
 			break
 		}
 		count++
-		result[Truncate(key, 64)] = SanitizeValue(key, value)
+		result[Truncate(key, 64)] = sanitizeValue(key, value, depth)
 	}
 	return result
 }

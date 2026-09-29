@@ -5,6 +5,12 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Documentation (2026-09-29): refreshed actor stack/host map and full
+  Identify & Publish flow. Distinguished Emby lookup from DB/INI publication,
+  recorded live old-path Windmill callers, shared Emby bridge write targets,
+  suppression/export limitations and separate runtime verification checks.
+  Documentation only; no application version bump or deployment.
+
 - Added a Semaphore deployment playbook for the isolated Emby `metatube2`
   service with preserved-container checks, live endpoint verification, and
   automatic image rollback on post-deploy failure.

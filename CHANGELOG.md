@@ -5,6 +5,12 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Documentation (2026-09-29): recorded Actor Editor/shared-DB rollout checkpoint,
+  verified compatibility schema and review-note writes, unchanged mapping hashes,
+  and the blocked watcher endpoint/backlog. Distinguished tested revision guards
+  and app candidates from deployed functionality; Save-to-Emby remains pending.
+  No SDK release or container deployment in this documentation change.
+
 - Documentation (2026-09-29): refreshed actor stack/host map and full
   Identify & Publish flow. Distinguished Emby lookup from DB/INI publication,
   recorded live old-path Windmill callers, shared Emby bridge write targets,

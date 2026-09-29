@@ -80,9 +80,13 @@ POST /api/w/homelab/jobs/run/f/f/jav_actor_db/publish_actor_substitutions
 
 Current Windmill source lives at
 **`f/jav_master_app/actor_db/publish_actor_substitutions.flow/flow.yaml`**.
-The sequence below describes this source. Deployed equivalence or an old-path
-compatibility flow was **not verified**. Compare the deployed flow before moving
-callers; update browser, watcher and scoped token permissions together.
+The sequence below describes this source. A subsequent read-only API check on
+Unraid `.150:8001` found the old flow present (HTTP 200, **11 stages**) and the
+new namespace absent (HTTP 404). Source has 12 stages, so deployed equivalence
+is not established. More importantly, the watcher still targets Kraken
+`.170:8001`, which refused connections. Seven historical jobs were pending;
+they have not been replayed. Compare/deploy the flow before moving callers;
+update browser, watcher and scoped token permissions together.
 The separate Emby Windmill UI/API on `:7810` has its own integration/workspace
 and is not a required hop for actor-browser publication.
 
@@ -123,6 +127,34 @@ All script names below are in `f/jav_master_app/actor_db`.
 | `record_actor_flow_telemetry` | Record unique root-job success/idempotent replay and change flags in Actor DB. Final-stage telemetry is not a complete failure log for all preceding steps. |
 
 ## 4. Database -> INI -> Actor substitution table
+
+### Actor Editor unification checkpoint (2026-09-29)
+
+JAV Master actor directory/record views previously used the actor copy in
+`jav_master_db`, while INI mapping edits already used `jav_actor_db`. All 1,707
+old actor UUIDs are in the canonical database (1,713 actors). Do not merge the
+entire JAV Master database: the app candidate introduces actor-only
+`ACTOR_DATABASE=jav_actor_db`, retaining global `PGDATABASE=jav_master_db`.
+
+Backups, additive editor compatibility columns/tables, and **86 separate review
+findings** are now present in canonical Actor DB. Identity, alias, mapping and
+Emby-link hashes are unchanged. Uncertain names and seven legacy-only aliases
+are review evidence, not guessed corrections or automatic alias imports.
+The app candidate places `# needs review` above a group, never inside its name
+or INI value, and preserves unsaved drafts during refresh.
+
+App integration/deployment remains under coordinator review. External-writer
+revision guards passed disposable PostgreSQL tests but are not yet deployed.
+The UI must return final revisions after alias writes and reject stale drafts.
+**Saving is still not automatic publication.** A publish-only durable job is
+needed: calling Identify/enrichment again after an editor Save can overwrite
+manual corrections. The watcher outage, held backlog, manual identity protection,
+shared-target serialization and final plugin verification remain release gates.
+
+Implementation, backup hashes and acceptance status live in the
+[Actor DB unification handoff](https://github.com/kinlshum/homelab_jav-actor-db/blob/codex/actor-unification-review/docs/ACTOR_UNIFICATION_20260929.md).
+
+### Target publication contract
 
 **Edit authoritative Actor DB -> publish -> render full export -> GitHub artifact
 -> bridge -> replace entire Emby MetaTube table -> reload / refresh / verify.**
@@ -209,7 +241,7 @@ No end-to-end publication was executed for this documentation review.
 
 ## 7. Canonical sources
 
-- [Windmill flow/scripts](https://github.com/kinlshum/homelab_windmill/tree/main/f/jav_master_app/actor_db): orchestration/export/publication. Reviewed local source at `65bbf14`; deployed old-path equivalence remains unchecked.
+- [Windmill flow/scripts](https://github.com/kinlshum/homelab_windmill/tree/main/f/jav_master_app/actor_db): orchestration/export/publication. Reviewed local source at `65bbf14`; live old-path flow has 11 stages, new path absent, full script equivalence remains unchecked.
 - [Actor DB repository](https://github.com/kinlshum/homelab_jav-actor-db): canonical schema, actor data and operations. Historical docs may retain old hosts/namespaces.
 - [Identify watcher](https://github.com/kinlshum/homelab_jav-actor-db/blob/main/ops/actor-identify-watcher/watcher.py): native Identify integration and old-path caller.
 - [Publication bridge](https://github.com/kinlshum/homelab_jav-actor-db/blob/main/ops/homelab-identity/metatube_provider_bridge.py): INI/config delivery, distinct from the SDK generic bridge source.

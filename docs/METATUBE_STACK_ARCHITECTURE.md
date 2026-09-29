@@ -135,8 +135,15 @@ Windmill.
   finance-reconciliation Windmill stack is not the actor workflow host.
 - Live actor browser/watcher still call `f/jav_actor_db/publish_actor_substitutions`;
   canonical Windmill source now lives under `f/jav_master_app/actor_db`.
-  Old-path compatibility/deployed script equivalence was not verified. Do not
-  migrate callers or delete the old flow without checking scoped permissions.
+  Read-only API check on Unraid `.150:8001` found old-path flow HTTP 200 with
+  11 stages, new-path HTTP 404. Watcher still targets `.170:8001` (connection
+  refused), with seven jobs pending and held from replay. Full deployed script
+  equivalence is not verified; do not reconnect/replay without a reviewed plan.
+- Actor Editor unification is in progress: canonical `jav_actor_db` now has
+  editor compatibility schema and 86 separate review findings; actor identities
+  and mappings are unchanged. The actor-only app routing/review UI and revision
+  guards are still deployment gates. Save-to-DB must not be shown as applied to
+  Emby. See [current flow checkpoint](ACTOR_IDENTITY_SUBSTITUTION_FLOW.md#actor-editor-unification-checkpoint-2026-09-29).
 - Admin1 is release `2026.09.28.1`, commit `0d322bc`, deployed 2026-09-29.
   Admin2 was intentionally unchanged by that deployment. Do not infer matching
   releases from matching admin branding. See [deployment evidence](DEPLOYMENT_LOG.md).

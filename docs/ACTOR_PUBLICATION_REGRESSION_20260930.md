@@ -19,6 +19,13 @@ or alias suppressions. SHA-256 before/after:
 `507268bcb9cb289d8bb1f340c524d9189cfdb240ecc56796e1a37829fa32ffa3`.
 Production already has `actor_alias_suppressions`; outbox is not installed yet.
 
+Broad Windmill actor suite: **72 passed + 7 subtests**, zero skips. Includes
+the 17 new worker cases and existing importer/enrichment, INI export, review
+preservation, inventory opt-in, reload, sync and watcher parser/backoff tests.
+Fixed two test-harness defects exposed by running the whole suite together:
+the watcher test referenced its pre-move repository path, and a sync unit test
+overwrote the real psycopg row factory with a stub. No watcher was enabled.
+
 ## Required final deployed regression
 
 - [ ] App coordinator reviews/integrates gated Save/status/retry candidate;
@@ -30,7 +37,7 @@ Production already has `actor_alias_suppressions`; outbox is not installed yet.
   runtime caller uses scoped credentials, not a deployment administrator token.
 - [ ] Route legacy enrichment producers through the same publication lane;
   do not activate a second uncoordinated publisher or replay seven old events.
-- [ ] Verify deployed bridge capability/auth/provider routes, rollback image,
+- [x] Verify deployed bridge capability/auth/provider routes, rollback image,
   unchanged INI/config hashes and unchanged other service image/start times.
 - [ ] Verify live Editor Save → committed DB/outbox → full INI/GitHub → plugin
   replacement/reload → exact Person metadata → fresh Editor read.
@@ -40,6 +47,16 @@ Production already has `actor_alias_suppressions`; outbox is not installed yet.
   app deployment; verify old manual enrichment still preserves reviewed data.
 - [ ] Record exact app/worker/bridge source and image IDs, backup location,
   test evidence and remaining limitations in release/deploy logs.
+
+Bridge-only rollout completed `2026-09-30T02:01:08Z`: source `c6058df`, image
+`sha256:a2517e07a609bea8a65ff08a8ed26dd694979dc0697b8dcbf5f667f0a3c33ccb`.
+Live unauthorized status=401; wrong-baseline blank-line-only candidate=409;
+authenticated status and provider stats=200. INI/JSON/XML hashes unchanged.
+Other three containers' image IDs and start timestamps match preflight.
+Rollback image `kinlshum/metatube-provider-bridge:rollback-cas-c6058df`;
+source backup and private live report under Kraken
+`/mnt/cache_nvme_apps/appdata/metatube-stack/actor-cas-c6058df.HzpebJ/`.
+No Emby restart, actor edit or automatic-publication activation in this rollout.
 
 Never label file replacement alone as applied: direct plugin-memory table
 readback is unavailable with the current SimpleUI/API-key route. Evidence must

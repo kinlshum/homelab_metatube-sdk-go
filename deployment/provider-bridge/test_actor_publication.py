@@ -35,6 +35,22 @@ class PublicationTests(unittest.TestCase):
   self.assertEqual(a.status()['status'],'READY')
  def test_duplicate_keys_rejected(self):
   with self.assertRaises(ValueError):a.validate('a=A\na=B\n')
+ def test_compare_and_swap_rejects_drift_without_writes(self):
+  before={k:p.read_bytes() for k,p in self.paths.items()}
+  with self.assertRaises(a.PublicationConflict):a.deploy('new=New\n',a.digest('new=New\n'),baseline_sha256='0'*64)
+  self.assertEqual(before,{k:p.read_bytes() for k,p in self.paths.items()})
+  self.assertFalse((self.root/'backups').exists())
+ def test_compare_and_swap_allows_exact_retry(self):
+  baseline=a.digest('old=Old\n');content='new=New\n';sha=a.digest(content)
+  self.assertEqual(a.deploy(content,sha,baseline_sha256=baseline)['status'],'DEPLOYED')
+  self.assertEqual(a.deploy(content,sha,baseline_sha256=baseline)['status'],'UNCHANGED')
+ def test_compare_and_swap_rejects_mixed_files_and_disabled_plugin(self):
+  baseline=a.digest('old=Old\n');content='new=New\n'
+  self.paths['ini'].write_text(content)
+  with self.assertRaises(a.PublicationConflict):a.deploy(content,a.digest(content),baseline_sha256=baseline)
+  cfg=json.loads(self.paths['json'].read_text());cfg['EnableActorSubstitution']=False
+  self.paths['json'].write_text(json.dumps(cfg))
+  with self.assertRaises(a.PublicationConflict):a.deploy(content,a.digest(content),baseline_sha256=baseline)
  def test_auth_and_readonly_status_route(self):
   token=self.root/'token';token.write_text('x'*32)
   handler=Mock();handler.path='/v1/actor-substitutions/status';handler.command='GET'

@@ -5,6 +5,12 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Actor publication bridge baseline guard: optional `baseline_sha256` is
+  compared under the shared file lock; changed/mixed installed files or disabled
+  substitution return HTTP 409 without replacement. Exact retry is idempotent.
+  Status advertises CAS capability for the new publication-only worker. Eight
+  isolated regression tests pass; whole automatic-Save rollout is still gated.
+
 - 2026-09-30 UTC: bridge1 recovery deployed and real actor enrichment/publication
   canary verified through DB, GitHub INI, Emby replacement/restart, exact Person
   refresh and fresh Actor Editor read. Preserved seven review-held mappings;

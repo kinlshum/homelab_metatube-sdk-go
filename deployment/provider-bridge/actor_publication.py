@@ -57,6 +57,7 @@ def status():
     j=digest(cfg.get('ActorRawSubstitutionTable') or '')
     x=digest(xml_table(ET.parse(p['xml'])).text or '')
     return {'status':'READY' if ini==j==x else 'OUT_OF_SYNC',
+            'baseline_cas_supported':True,
             'sha256':ini,'ini_sha256':ini,'metatube_sha256':j,'metatube_xml_sha256':x,
             'verification_scope':'files_only','actor_substitution_enabled':cfg.get('EnableActorSubstitution') is True}
 
@@ -76,7 +77,11 @@ def atomic_write(path,data):
         if os.path.exists(tmp):os.unlink(tmp)
 
 
-def deploy(content,expected,git_revision=None):
+class PublicationConflict(ValueError):
+    """The installed table changed since the caller captured its baseline."""
+
+
+def deploy(content,expected,git_revision=None,baseline_sha256=None):
     count=validate(content)
     if not hmac.compare_digest(digest(content),str(expected or '')):
         raise ValueError('Requested content SHA-256 mismatch')
@@ -84,8 +89,15 @@ def deploy(content,expected,git_revision=None):
     with open(p['json'].parent/'.actor-publication.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         before=status()
+        if baseline_sha256 is not None and not before['actor_substitution_enabled']:
+            raise PublicationConflict('Actor substitution is disabled')
         if all(before[k]==expected for k in ['ini_sha256','metatube_sha256','metatube_xml_sha256']):
             return {**before,'status':'UNCHANGED','entry_count':count,'git_revision':git_revision}
+        # Compare while holding the shared file lock. A preflight GET cannot
+        # protect against another publisher winning the race before this POST.
+        if baseline_sha256 is not None and any(before[k]!=baseline_sha256 for k in
+                ['ini_sha256','metatube_sha256','metatube_xml_sha256']):
+            raise PublicationConflict('Installed substitution baseline changed')
         cfg=json.loads(p['json'].read_text())
         tree=ET.parse(p['xml'])
         xml_table(tree).text=content
@@ -129,8 +141,9 @@ def handle(handler):
             length=int(handler.headers.get('Content-Length','0'))
             if length<=0 or length>21*1024*1024:raise ValueError('Invalid request size')
             data=json.loads(handler.rfile.read(length))
-            reply(200,deploy(data.get('content'),data.get('sha256'),data.get('git_revision')))
+            reply(200,deploy(data.get('content'),data.get('sha256'),data.get('git_revision'),data.get('baseline_sha256')))
         else:reply(405,{'error':'method not allowed'})
+    except PublicationConflict as e:reply(409,{'error':str(e)})
     except ValueError as e:reply(400,{'error':str(e)})
     except Exception:reply(500,{'error':'Actor publication failed; inspect bridge deployment and backups'})
     return True

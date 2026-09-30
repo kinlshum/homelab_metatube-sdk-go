@@ -1,0 +1,43 @@
+{
+  "contract_version": "1.0.0",
+  "status": "reviewed_identity_fixture_not_runtime_configuration",
+  "input": "白石みお（白石未央）",
+  "reviewed_mapping_key": "miyu-kanade",
+  "expected": {
+    "western_name": "Miyu Kanade",
+    "japanese_name": "かなで自由",
+    "name": "Miyu Kanade (JAP、1994、かなで自由)",
+    "legacy_display_names": ["Miyu Kanade (かなで自由)"],
+    "historical_aliases": ["白石みお", "白石未央", "白石みお（白石未央）"],
+    "ini_alias_targets": {
+      "白石みお": "Miyu Kanade (JAP、1994、かなで自由)",
+      "白石未央": "Miyu Kanade (JAP、1994、かなで自由)",
+      "白石みお（白石未央）": "Miyu Kanade (JAP、1994、かなで自由)"
+    },
+    "unapproved_identity_labels": ["聖菜アリサ", "聖菜アリサ   白石みお（白石未央）"],
+    "old_profile_title_overwrites_canonical_name": false,
+    "alias_mapping_deletes_person": false,
+    "publication_state": "not_requested_by_this_fixture"
+  },
+  "deployment_observation": {
+    "observed_on": "2026-09-30",
+    "scope": "existing Emby installation; IDs are not portable to another server",
+    "canonical_person_id": "8827",
+    "old_person_ids": ["874202", "981097"],
+    "movies_relinked": 12,
+    "already_linked_movies": 7,
+    "new_canonical_links": 5,
+    "canonical_movie_count_before": 210,
+    "canonical_movie_count_after": 215,
+    "remaining_references_per_old_person": {"874202": 0, "981097": 0},
+    "person_cleanup_state": "deletion_unconfirmed_records_still_readable",
+    "deletion_readback_verified": false,
+    "video_files_moved_or_deleted": false,
+    "receipt_path_on_kraken": "/mnt/cache_nvme_apps/appdata/miyu-person-relink-20260930-4crwvqry/receipt.json",
+    "note": "Observed counts are historical evidence, not values to republish. An HTTP success from DELETE did not prove Person removal. No alias-table publication is claimed by this operation."
+  },
+  "review_items": [
+    {"field": "birth_date", "reason": "Source disagreement: February 13 versus February 14, 1994. Preserve the installed full date pending review; the shared year 1994 is approved for the standard display name."},
+    {"field": "aliases", "reason": "Other provider aliases and mixed-name labels are not approved by this mapping; retain evidence separately and do not infer a merge."}
+  ]
+}

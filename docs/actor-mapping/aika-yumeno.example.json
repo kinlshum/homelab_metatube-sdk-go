@@ -1,0 +1,47 @@
+{
+  "contract_version": "1.0.0",
+  "status": "provisional_research_fixture_not_applied",
+  "input": "夢乃あいか",
+  "sources": [
+    {"source": "AV-LEAGUE", "state": "matched", "id": "9657"},
+    {"source": "Minnano-AV", "state": "matched", "id": "545220"},
+    {"source": "JAVDatabase", "state": "matched", "id": "aika-yumeno"},
+    {"source": "Babepedia", "state": "matched", "id": "Aika_Yumeno", "retrieval": "cache_only"},
+    {"source": "Gfriends", "state": "matched", "id": "夢乃あいか", "retrieval": "cache_only"},
+    {"source": "JAVDB", "state": "not_attempted", "id": null},
+    {"source": "JavLibrary", "state": "unavailable", "id": null, "note": "Absent from inspected cache; resolver request timed out; not proof of site absence"},
+    {"source": "XsList", "state": "matched", "id": "9", "retrieval": "cache_only"}
+  ],
+  "claims": [
+    {"field": "western_name", "source": "Minnano-AV", "external_id": "545220", "url": "https://www.minnano-av.com/actress545220.html", "raw_value": "Yumeno Aika", "normalized_value": "Aika Yumeno", "observed_at": "2026-09-30", "retrieval": "web_indexed_profile", "note": "Known surname-first order; indexed page may be stale"},
+    {"field": "birth_date", "source": "AV-LEAGUE", "external_id": "9657", "url": "https://www.av-league.com/actress/9657.html", "raw_value": "1994年8月26日", "normalized_value": "1994-08-26", "observed_at": "2026-09-30", "retrieval": "web_indexed_profile"},
+    {"field": "birth_date", "source": "XsList", "external_id": "9", "url": "https://xslist.org/zh/model/9.html", "raw_value": "1994-08-25", "normalized_value": "1994-08-25", "observed_at": "2026-09-30", "retrieval": "resolver_cache_inspection_not_fresh_source"},
+    {"field": "debut_date", "source": "Minnano-AV", "external_id": "545220", "url": "https://www.minnano-av.com/actress545220.html", "raw_value": "2013年05月07日", "normalized_value": "2013-05-07", "observed_at": "2026-09-30", "retrieval": "web_indexed_profile"},
+    {"field": "place_of_birth", "source": "AV-LEAGUE", "external_id": "9657", "url": "https://www.av-league.com/actress/9657.html", "raw_value": "東京都", "normalized_value": "Tokyo", "observed_at": "2026-09-30", "retrieval": "web_indexed_profile"}
+  ],
+  "expected": {
+    "name": "Aika Yumeno (JAP、1994、夢乃あいか)",
+    "name_without_year": "Aika Yumeno (JAP、夢乃あいか)",
+    "western_name": "Aika Yumeno",
+    "japanese_name": "夢乃あいか",
+    "country_code": "JAP",
+    "country_code_note": "Existing application classification retained; not inferred from Tokyo",
+    "birth_date": "1994-08-26",
+    "birth_year": 1994,
+    "debut_date": "2013-05-07",
+    "debut_age": 18,
+    "place_of_birth": "Tokyo",
+    "javdb_movie_count": null,
+    "emby_movie_count": null,
+    "movie_count_display": "? / ? movie(s)",
+    "ini_contains_full_biography": false,
+    "review_fields": ["birth_date", "debut_date", "blood_type", "cup_size", "measurements_cm"],
+    "overview_review_section": {"position": "bottom_after_links", "divider": "---------------------", "heading": "Needs review", "items": ["Birth date: August 26 supported; cached XsList reports August 25.", "AV debut: May 7 supported; other sources report February 23.", "Blood type: B versus A.", "Cup size: G versus H; retain source sizing systems.", "Measurements: 79–52–78 versus 95–52–78 cm.", "JAVDB actor ID and movie total not yet verified.", "JavLibrary actor ID not yet verified."]}
+  },
+  "forbidden": {
+    "western_name": ["Aika Yumeno/32岁", "aika_yumeno"],
+    "nationality": ["Tokyo", "東京都"],
+    "javdb_movie_count_sources": ["AV-LEAGUE", "JAVDatabase", "JavLibrary", "number_of_sources"]
+  },
+  "review_note": "# needs review: reconcile source conflicts; preserve installed reviewed values; discover JAVDB and JavLibrary IDs before claiming complete enrichment"
+}

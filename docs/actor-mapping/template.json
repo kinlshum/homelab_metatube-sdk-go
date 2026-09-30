@@ -1,0 +1,24 @@
+{
+  "contract_version": "1.0.0",
+  "status": "template_not_a_publication_request",
+  "actor_id": null,
+  "emby_person_id": null,
+  "expected_revision": null,
+  "request_id": null,
+  "claims": [],
+  "sources": [],
+  "decisions": {},
+  "profiles": [],
+  "review_items": [],
+  "identity_resolution": {"reviewed_mapping_key": null, "historical_aliases": [], "unapproved_identity_labels": [], "manual_locked": false},
+  "person_cleanup": {"state": "not_requested", "source_person_ids": [], "target_person_id": null, "zero_references_verified": false, "deletion_readback_verified": false},
+  "counts": {
+    "emby": {"value": null, "scope": null, "checked_at": null, "complete": false},
+    "javdb": {"value": null, "profile_url": null, "scope": null, "checked_at": null, "complete": false, "stale": false}
+  },
+  "portrait": {"selected_url": null, "manual": false, "verified": false},
+  "publication": {"request_id": null, "snapshot_revision": null, "ini_sha256": null, "state": "not_requested"},
+  "claim_template": {"field": null, "source": null, "external_id": null, "url": null, "raw_value": null, "normalized_value": null, "unit_system": null, "observed_at": null, "effective_at": null, "retrieval": null},
+  "decision_template": {"value": null, "state": "unavailable", "claim_indexes": [], "reason": null, "manual_locked": false},
+  "profile_template": {"source": null, "external_id": null, "url": null, "stage_name_context": "unknown", "primary": false, "verification": "pending", "evidence": []}
+}

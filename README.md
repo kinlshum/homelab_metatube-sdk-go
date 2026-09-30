@@ -12,6 +12,7 @@ Metadata Tube SDK in Golang.
 
 - [Deployed stack, Docker services and host map](docs/METATUBE_STACK_ARCHITECTURE.md)
 - [Actor scraping, enrichment, DB-to-INI publication and Emby delivery flow](docs/ACTOR_IDENTITY_SUBSTITUTION_FLOW.md)
+- [Actor metadata dictionary, merge rules and enrichment template](docs/ACTOR_METADATA_MAPPING.md)
 - [MetaTube video and actor enrichment trace tabs](docs/METATUBE_ENRICHMENT_TRACE_TODO.md)
 
 ## Contents

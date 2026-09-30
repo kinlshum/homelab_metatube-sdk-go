@@ -2,6 +2,11 @@
 
 Updated 2026-09-30 UTC. Read with the [stack and host map](METATUBE_STACK_ARCHITECTURE.md).
 
+The [actor mapping contract](ACTOR_METADATA_MAPPING.md) defines the next
+field-level enrichment work: eight-source identity/ID discovery, protected
+merging, structured overview and JAVDB-only source counts. Its dictionary and
+fixture are a specification, not evidence that those adapters are deployed.
+
 ## Current unified publication path
 
 This supersedes the historical audit/checkpoints below. The canonical database

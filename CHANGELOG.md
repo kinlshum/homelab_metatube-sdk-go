@@ -5,6 +5,24 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Implement a candidate reviewed-identity dictionary adapter for the Windmill
+  transactional producer, with immutable dictionary hash, alias review holds,
+  installed-date preservation and bottom-of-overview notes. Corresponding
+  Windmill changes store evidence with the publication snapshot and expose a
+  dictionary trace event. User approved the standard JAP/1994 name over the legacy short label;
+  this is not the complete eight-source merge/discovery implementation.
+
+- Add the reviewed Miyu Kanade canonical identity and historical 白石 alias
+  mapping to the new dictionary, with an evidence fixture and integrity tests.
+  Record the verified 12-movie credit transfer separately from unconfirmed
+  duplicate-Person deletion. Dictionary changes are not runtime publication.
+
+- Document actor mapping contract 1.0.0 with an eight-source dictionary,
+  external-ID discovery rules, protected field-level merging, structured Emby
+  overview/IDs, JAVDB-only catalogue count, publication boundaries and the
+  provisional Aika Yumeno regression fixture. Documentation/artifact checks
+  only; no runtime version bump, database changes or deployment.
+
 ## 2026.09.30.2 — actor identity recovery and unified publication traces
 
 - Separate publication receipt status from successful provider lookup in actor

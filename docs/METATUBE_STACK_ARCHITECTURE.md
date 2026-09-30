@@ -1,12 +1,20 @@
 # MetaTube stack architecture and placement
 
-Updated 2026-09-29 from read-only Kraken/Unraid container inventory, service IPs,
+Updated 2026-09-30 from Kraken/Unraid container inventory, service IPs,
 mounts and source review. This maps MetaTube plus the actor scraping,
 publication and Emby delivery stack; it is not a second Compose file or proof
 that every workflow completed successfully.
 
 For the actor database, substitution-table, and Emby delivery path, see
 [`ACTOR_IDENTITY_SUBSTITUTION_FLOW.md`](ACTOR_IDENTITY_SUBSTITUTION_FLOW.md).
+
+Actor publication now uses one canonical Actor DB transaction/outbox for
+Editor Saves and enrichment. The minute Windmill drain serializes immutable
+snapshots through GitHub, bridge1, conditional playback-safe Emby reload and
+exact Person verification. App 2.1.76 is enabled; Editor save/restore and
+future-event watcher acceptance passed. Exact evidence is tracked in
+`ACTOR_PUBLICATION_REGRESSION_20260930.md`.
+The historical inventory further below describes the pre-cutover deployment.
 
 ## Deployment drawing
 
@@ -21,12 +29,15 @@ flowchart LR
   EMBY -. native Identify logs .-> WATCH["Actor Identify watcher on Kraken"]
   WATCH -->|best-effort submission| WM
   WM --> ADB["Canonical Actor PostgreSQL\nKraken :5433"]
+  JAV -->|Actor Editor Save| ADB
+  ADB --> OUTBOX["Immutable publication outbox\nfull INI + exact Person snapshot"]
+  OUTBOX --> DRAIN["Windmill minute drain\nordered single publisher"]
   WM --> RES["Actor resolver\nKraken :9211"]
   WM -->|resource-selected instance| MTRESOURCE["MetaTube actor search/details"]
-  WM -->|generated INI, changed content only| GIT["Configured GitHub artifact target"]
-  WM -->|configured publication bridge| PUB["Replace Emby INI / JSON / XML\nand attempt live plugin config update"]
+  DRAIN -->|snapshot INI, changed content only| GIT["kinlshum/windmill-project\nJAV-ACTOR-SUB.ini"]
+  GIT --> PUB["Bridge1: baseline-protected\nINI / JSON / XML replacement"]
   PUB --> EMBY
-  WM -->|conditional restart, exact Person refresh and sync| EMBY
+  DRAIN -->|playback-safe conditional restart; exact Person refresh/sync| EMBY
 
   UP["External provider sites"]
   subgraph KRAKEN["MetaTube stacks on Kraken — 192.168.10.170"]
@@ -67,7 +78,7 @@ flowchart LR
 | `metatube-flaresolverr` | Browser challenge solver for MetaTube1/JAV Master | diagnostic host port `8191`; never share its state with MetaTube2 |
 | `metatube2` | Dedicated Emby-only MetaTube API | LAN `192.168.10.167:8080`; public admin `https://metatube-admin2.madtechinc.com/admin`; config/trace volume `/mnt/cache_nvme_apps/appdata/metatube2-server:/config`; uses the `*2` dependencies |
 | `metatube2-postgres` | MetaTube2 PostgreSQL 15 | `/mnt/user/appdata/metatube2/postgres` |
-| `metatube2-provider-bridge` | Separate provider adapter/state for Emby lookups | diagnostic host port `9212`; state `./provider-bridge2/state`; uses `flaresolverr2:8191`; actor publication mounts still target the same Emby as bridge1 |
+| `metatube2-provider-bridge` | Separate provider adapter/state for Emby lookups | diagnostic host port `9212`; state `./provider-bridge2/state`; uses `flaresolverr2:8191`; no live actor-publication route. Bridge1 is the sole publication target. |
 | `metatube2-flaresolverr` | Isolated browser solver for Emby | diagnostic host port `8192` (container port `8191`) |
 | `emby-windmill-api` / `emby-windmill-app` | Thin Emby/Windmill orchestration API and UI | host port `192.168.10.170:7810`; uses `WINDMILL_URL=http://windmill.madtechinc.com/api` and the `admins` workspace |
 | `EmbyServer` | Person/movie metadata, installed MetaTube/custom plugins, portrait storage | host appdata `/mnt/cache_nvme_apps/appdata/EmbyServer` mounted at `/config`; service IP `.151`; retain legacy flat people layout |
@@ -133,12 +144,12 @@ Windmill.
   watcher submission paths checked read-only. Unraid `windmill-1`,
   `windmill-postgresql16` and Semaphore placement rechecked. The separate
   finance-reconciliation Windmill stack is not the actor workflow host.
-- Live actor browser/watcher still call `f/jav_actor_db/publish_actor_substitutions`;
-  canonical Windmill source now lives under `f/jav_master_app/actor_db`.
-  Read-only API check on Unraid `.150:8001` found old-path flow HTTP 200 with
-  11 stages, new-path HTTP 404. Watcher still targets `.170:8001` (connection
-  refused), with seven jobs pending and held from replay. Full deployed script
-  equivalence is not verified; do not reconnect/replay without a reviewed plan.
+- September29 audit found old-path11-stage/new-path404 drift and a watcher
+  targeting retired `.170:8001`. September30 deployment replaces both old and
+  canonical flow paths with the same atomic producer/publication worker on
+  `.150:8001`; the minute drain is enabled. The new watcher also uses `.150:8001`
+  and has seven historical events held, zero pending at acceptance; existing-
+  request replay passed. See the regression record for rollback/verification.
 - Actor Editor shared-DB rollout is live in JAV Master 2.1.72: `jav_actor_db` has
   editor compatibility schema and 86 separate review findings; actor identities
   and mappings are unchanged. Actor-only routing/review UI and revision guards
@@ -151,5 +162,5 @@ Windmill.
   live Admin2 build context was still the old repository name at the last
   deployment inspection. Correct it through a scoped future deployment.
 - Graylog host roles and persistent DB paths retain the earlier documented
-  configuration; no end-to-end actor publication or full log-delivery test was
-  executed during this documentation-only review.
+  configuration. Actor enrichment/replay now has live publication evidence;
+  this does not constitute a full Graylog delivery test.

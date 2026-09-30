@@ -1,8 +1,40 @@
 # Actor scraping, enrichment, publication, and Emby delivery
 
-Updated 2026-09-29. Read with the [stack and host map](METATUBE_STACK_ARCHITECTURE.md).
+Updated 2026-09-30 UTC. Read with the [stack and host map](METATUBE_STACK_ARCHITECTURE.md).
 
-## Verified continuation — 2026-09-30 UTC
+## Current unified publication path
+
+This supersedes the historical audit/checkpoints below. The canonical database
+is `jav_actor_db` on Kraken, not the MetaTube cache or Windmill's internal DB.
+JAV Master 2.1.76 has automatic publication enabled. Backend enrichment,
+idempotent replay, real Editor overview/mapping forward-and-restore tests and
+future-only watcher cutover have passed. Exact evidence is tracked in the
+[release regression record](ACTOR_PUBLICATION_REGRESSION_20260930.md).
+
+```mermaid
+flowchart TD
+  EDIT["Actor Editor Save / Mapping Save"] --> TX["Canonical Actor DB transaction"]
+  IDENT["Identify & Publish / future native Identify event"] --> COLLECT["Windmill provider collection"]
+  COLLECT --> TX
+  TX --> SNAP["Immutable full INI + exact Person metadata snapshot / outbox"]
+  SNAP --> DRAIN["One ordered publication worker; minute drain retries known checkpoints"]
+  DRAIN --> GH["GitHub INI with baseline protection"]
+  GH --> BR["Bridge1 full INI / JSON / XML replacement with baseline protection"]
+  BR --> RELOAD["Changed table only: wait for no playback, restart / verify Emby"]
+  RELOAD --> PERSON["Refresh / synchronize exact Person; verify metadata"]
+  PERSON --> APPLIED["Applied receipt + verified publication head"]
+  APPLIED --> READ["Fresh Actor Editor DB read + publication status"]
+```
+
+Save does not itself mean Applied. Publication is asynchronous; pending,
+blocked and failed states remain visible. Reviewed actor-editor fields/aliases
+and seven installed review holds survive enrichment. Uncertain external writes
+block for reconciliation rather than blind resend. Metadata-only Saves reuse a
+verified unchanged table without restarting Emby. Historical native Identify
+events are held; no broad inventory refresh, People cleanup or identity merging
+is part of single-actor publication. Ordinary plugin lookup remains separate.
+
+## Historical pre-outbox continuation — 2026-09-30 UTC
 
 The controlled real enrichment/publication canary now passes. Earlier sections
 describe the original read-only audit; this checkpoint supersedes its statement
@@ -43,7 +75,7 @@ that no live publication/restart had been tested.
   mapping and `# needs review: publication_hold`; the owned rollout pause was
   removed. This release did not change actor data or enable Save publication.
 
-Still incomplete: ordinary Editor Save is DB-only, not automatic publication;
+At that historical checkpoint, ordinary Editor Save was DB-only, not automatic publication;
 native Identify watcher endpoint/backlog recovery is not enabled. Seven
 historical queued watcher entries were not replayed. Next work needs a durable
 Save outbox, immutable export snapshot, publication-only flow and truthful
@@ -116,8 +148,8 @@ flowchart TD
 | --- | --- | --- |
 | Actor browser `:8093`, Identify & Publish | Explicitly submits a Windmill publication job | Pass the exact Emby Person ID. Distinct from ordinary metadata lookup. |
 | Native Emby Identify + `jav-actor-identify-watcher` | Watches `RemoteSearch/Apply` log entries, resolves the Person and queues publication with durable pending/offset state | Best-effort log integration, not a native transactional webhook. Check actual submission and job ID. |
-| Explicit Windmill invocation | Supplied identity, aliases, Person ID, optional duplicate IDs and dry-run flag | Current canonical flow defaults `dry_run=true`; a preview is not applied changes. |
-| JAV Master Actors UI / other consumers | May read/edit data or invoke their own integrations | Do not assume every editor Save publishes the INI; verify its explicit publish action. |
+| Explicit Windmill invocation | Supplied identity, aliases, exact Person ID, request UUID and dry-run flag | Defaults `dry_run=true`; bulk inventory/consolidation is rejected by this flow. |
+| JAV Master Actor Editor / INI mapping editor | Save to canonical DB and enqueue immutable publication in the same transaction when enabled | Check the receipt: Saved/pending is not Applied. Other consumers must explicitly use the same contract. |
 
 ### Verified routing drift
 
@@ -128,15 +160,16 @@ The **live** actor browser and watcher on 2026-09-29 still submit to workspace
 POST /api/w/homelab/jobs/run/f/f/jav_actor_db/publish_actor_substitutions
 ```
 
-Current Windmill source lives at
+Canonical Windmill source lives at
 **`f/jav_master_app/actor_db/publish_actor_substitutions.flow/flow.yaml`**.
-The sequence below describes this source. A subsequent read-only API check on
-Unraid `.150:8001` found the old flow present (HTTP 200, **11 stages**) and the
-new namespace absent (HTTP 404). Source has 12 stages, so deployed equivalence
-is not established. More importantly, the watcher still targets Kraken
-`.170:8001`, which refused connections. Seven historical jobs were pending;
-they have not been replayed. Compare/deploy the flow before moving callers;
-update browser, watcher and scoped token permissions together.
+The old eleven-stage live flow/new-path404 drift found on September29 was
+corrected in the September30 rollout: both entrypoint names now resolve to
+the same two-module atomic-producer/publication-worker flow. The minute drain
+uses the same worker, not a competing publisher. The watcher endpoint correction
+is a separately verified future-event cutover; seven historical events remain
+held. Its active endpoint is now `.150:8001`; in-container existing-request
+replay passed with zero new actor mutations. Completion and rollback state
+are recorded in the release regression record.
 The separate Emby Windmill UI/API on `:7810` has its own integration/workspace
 and is not a required hop for actor-browser publication.
 
@@ -145,36 +178,29 @@ and is not a required hop for actor-browser publication.
 ```mermaid
 flowchart TD
   T["Explicit publish / watcher"] --> W["Windmill on Unraid .150"]
-  W --> A["1 Import exact Emby Person"]
-  A --> B["2 Enrich from MetaTube and resolver"]
-  B --> DB["3 Upsert canonical Actor DB record and aliases"]
-  DB --> INV["4 Inventory Emby People for mapping coverage"]
-  INV --> DUP["5 Consolidate explicitly supplied duplicates"]
-  DUP --> INI["6 Render complete deterministic INI"]
-  INI --> GH["7 Publish changed artifact to GitHub"]
-  GH --> BR["8 Bridge file delivery and plugin configuration API"]
-  BR --> RE["9 Restart only on change; wait ready"]
-  RE --> RF["10 Refresh exact Emby Person"]
-  RF --> SY["11 Restore canonical identity and verify stable name"]
-  SY --> TEL["12 Record success / idempotent telemetry"]
+  W --> A["Collect exact Emby Person / MetaTube / resolver facts"]
+  A --> DB["Single locked transaction: import, enrich, aliases"]
+  DB --> INI["Capture immutable full INI + Person metadata / enqueue"]
+  INI --> GH["One publisher: GitHub compare-and-swap"]
+  GH --> BR["Bridge1 baseline-checked whole-table replacement"]
+  BR --> RE["Changed table: wait for no playback, restart / verify"]
+  RE --> RF["Refresh and synchronize exact Person"]
+  RF --> TEL["Applied evidence / immutable receipt / fresh Editor read"]
 ```
 
 All script names below are in `f/jav_master_app/actor_db`.
 
-| Stage / script | Responsibility and evidence |
+| Runtime stage | Responsibility and evidence |
 | --- | --- |
-| `import_actor_from_emby` | Import existing facts/aliases while retaining the exact Person identity. |
-| `refresh_actor_from_metatube` | Search/details from the resource-configured MetaTube URL; call resolver `/resolve?refresh=true`. Can also fetch JavDB aliases using an existing external actor profile, outside the SDK provider path. Merge identity/profile evidence into Actor DB. Do not assume this resource always selects MetaTube2. |
-| `upsert_actor_substitution` | Store canonical name, country/year and confirmed aliases; explicit supplied identity fields participate in precedence. |
-| `sync_emby_actor_inventory` | Inventory Western-named Emby People for mapping coverage, not just the edited actor. |
-| `consolidate_emby_actor_people` | Reassign movie references before retiring explicitly supplied duplicate People. Empty duplicate list is not blanket cleanup authorization. |
-| `render_actor_substitutions` | Live export reads `actor_effective_substitutions`; validates/sorts mappings and returns content, count and SHA-256. Dry-run overlays proposed mappings onto the existing Kraken INI, so it is not identical to live DB export. |
-| `publish_substitutions_to_github` | Commit only changed content. Repository/ref/path are resource-configured; default filename `JAV-ACTOR-SUB.ini`. An old SDK snapshot is not authoritative. |
-| `deploy_actor_substitutions` | POST content/hash/revision to bridge `/v1/actor-substitutions/deploy`; compare hash. Also attempt complete replacement through Emby's plugin Configuration API. Check `live_config_verified` separately from `verified`. |
-| `reload_emby_after_substitution` | Current flow sets `restart_on_change=true`: changed delivery restarts `EmbyServer`; unchanged skips restart. Both check readiness. |
-| `refresh_emby_person` | Refresh exact Person after verified delivery/readiness. Accepted request is not completed refresh. |
-| `sync_actor_to_emby` | Wait for settling; restore canonical name, IDs/aliases and Also known as line while retaining the rest of the biography; verify stable name over a time window. |
-| `record_actor_flow_telemetry` | Record unique root-job success/idempotent replay and change flags in Actor DB. Final-stage telemetry is not a complete failure log for all preceding steps. |
+| `enqueue_actor_enrichment` preparation | Exact Person import, MetaTube details and resolver collection occur before the transaction; no global inventory or duplicate consolidation. |
+| Atomic apply + canonical `publication.snapshot` | Apply prepared facts using the three collector modules under writer lane1; preserve reviewed fields; capture full effective mapping and exact Person revisions/metadata; commit outbox with DB changes. Same request UUID returns its original receipt. |
+| `publish_saved_actor_request` | Request-ID-only consumer. Verify predecessor and snapshot revisions, GitHub baseline/blob, then bridge file baseline. No re-scraping or importing manual edits. |
+| Emby delivery inside worker | Changed INI requires playback-safe observed reload; unchanged verified table skips restart. Synchronize exact Person metadata while preserving unrelated IDs; verify stable readback. Uncertain writes fail closed. |
+| `drain_actor_publications` | Minute schedule attempts oldest eligible request; waits for lease/backoff, stops behind failed/blocked requests, resumes known delivery checkpoints. |
+| Publication receipt/head | Durable stage/error/evidence and applied snapshot hash; Editor fresh reads show canonical DB data plus request status. File delivery alone is not Applied. |
+
+Legacy direct GitHub/bridge publisher scripts are retired on the live instance.
+Inventory and duplicate-cleanup tools remain separate reviewed operations.
 
 ## 4. Database -> INI -> Actor substitution table
 
@@ -199,10 +225,10 @@ deployed; installed definitions match the disposable-tested version and actor
 data fingerprints remain unchanged. All 34 actor backend tests passed without
 skips, alongside 11 browser tests. Save responses return final revisions after
 alias writes; stale drafts are rejected and unsaved edits survive refresh.
-**Saving is still not automatic publication.** A publish-only durable job is
-needed: calling Identify/enrichment again after an editor Save can overwrite
-manual corrections. The watcher outage, held backlog, manual identity protection,
-shared-target serialization and final plugin verification remain release gates.
+At the 2.1.72 checkpoint, saving was not automatic publication. The September30
+outbox rollout now implements publication-only delivery of Editor Saves; it
+does not call Identify/enrichment again or overwrite manual corrections.
+See the current regression record for final deployed acceptance.
 
 Implementation, backup hashes and acceptance status live in the
 [Actor DB unification handoff](https://github.com/kinlshum/homelab_jav-actor-db/blob/codex/actor-unification-review/docs/ACTOR_UNIFICATION_20260929.md).

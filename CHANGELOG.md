@@ -5,17 +5,26 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- 2026-09-30 UTC unified actor backend deployed: atomic enrichment + immutable
+  outbox, ordered publication-only worker, minute dispatcher and compatible old
+  flow entrypoints. Real enrichment/replay verified; 105 backend regressions
+  plus 7 subtests pass. App 2.1.76 enables lossless Editor Save publication;
+  real overview/mapping edit-and-restore canaries and future-event watcher
+  acceptance passed. Seven historical Identify events remain held. See
+  `docs/ACTOR_PUBLICATION_REGRESSION_20260930.md` for the release gates.
+
 - Actor publication bridge baseline guard: optional `baseline_sha256` is
   compared under the shared file lock; changed/mixed installed files or disabled
   substitution return HTTP 409 without replacement. Exact retry is idempotent.
   Status advertises CAS capability for the new publication-only worker. Eight
-  isolated regression tests pass; whole automatic-Save rollout is still gated.
+  isolated regression tests pass; baseline guard is deployed as recorded below.
 
 - 2026-09-30 UTC: bridge1 recovery deployed and real actor enrichment/publication
   canary verified through DB, GitHub INI, Emby replacement/restart, exact Person
   refresh and fresh Actor Editor read. Preserved seven review-held mappings;
-  bulk inventory refresh is now opt-in in Windmill. Automatic Editor Save
-  publication and native Identify watcher recovery remain pending.
+  bulk inventory refresh was made opt-in in the earlier flow. The subsequent
+  unified flow excludes bulk inventory entirely; Editor Save and native
+  Identify watcher acceptance are recorded in the newer checkpoint above.
 
 - Actor bridge recovery (`bridge-2026.09.29.1`): restore authenticated whole-table
   actor substitution status/deploy endpoints to the SDK bridge image while

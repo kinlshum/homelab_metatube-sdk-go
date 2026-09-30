@@ -2,6 +2,51 @@
 
 Updated 2026-09-29. Read with the [stack and host map](METATUBE_STACK_ARCHITECTURE.md).
 
+## Verified continuation — 2026-09-30 UTC
+
+The controlled real enrichment/publication canary now passes. Earlier sections
+describe the original read-only audit; this checkpoint supersedes its statement
+that no live publication/restart had been tested.
+
+- Mai Takeda (`42935ba3-42ae-41ae-b2ea-e4771437a013`, Emby Person `7759`)
+  traversed enrichment → canonical `jav_actor_db` → complete INI → GitHub →
+  bridge1 replacement → Emby application restart → exact Person refresh/sync.
+- Job `01a0efdc-5163-f06b-088a-fae670221364` finished all 11 stages successfully
+  at `2026-09-30T01:11:46Z` in 118.158 seconds. DB revision is 56. Final name is
+  `Mai Takeda (JAP、1998、竹田まい)`, birthday `1998-05-12`; four post-refresh name
+  checks passed without corrective rewrites. Actor Editor fresh search showed
+  the same 12 provider mappings (plus separate inventory groups marked review).
+- 5,791 effective mappings match GitHub INI, installed INI and MetaTube JSON/XML
+  table bytes: SHA-256 `507268bcb9cb289d8bb1f340c524d9189cfdb240ecc56796e1a37829fa32ffa3`.
+  Live publisher resource still targets `kinlshum/windmill-project`, artifact
+  commit `6975bedb861a5f8a13d31b9e743b55d858e7acac`; this legacy destination is
+  not yet migrated to the canonical actor repository.
+- Six user-approved conflicting inventory mappings retain installed names.
+  A seventh existing plugin-only mapping (`川口ともか`) is also preserved, with
+  a separate review finding. Holds are not proof of identity correctness.
+- First real canary `01a0efd3-6c9f-3eba-83b7-e86619175a7c` failed closed before
+  publication because a bulk inventory sync introduced unrelated changes.
+  Only that sync was restored from backup under an exact-state transaction
+  guard (4,239 rows); Mai enrichment and all holds were retained. Single-actor
+  publication now skips bulk inventory unless `sync_inventory=true` explicitly.
+- Repaired stale Windmill Emby authentication using the established integration
+  secret; restored missing bridge publication routes. No secret is in Git.
+  Emby's legacy plugin Configuration API fails for this SimpleUI plugin. The
+  canary verifies disk hashes, observed application downtime/readiness after
+  authenticated restart, plugin availability, and exact Person readback. It
+  does **not** claim direct readback of the plugin's in-memory table.
+- Backups and machine-readable acceptance are private on Kraken under
+  `/mnt/cache_nvme_apps/appdata/actor-unification-20260929-holds/`.
+
+Still incomplete: ordinary Editor Save is DB-only, not automatic publication;
+native Identify watcher endpoint/backlog recovery is not enabled. Seven
+historical queued watcher entries were not replayed. Next work needs a durable
+Save outbox, immutable export snapshot, publication-only flow and truthful
+pending/applied/retry UI. Manual alias export and delete/restore semantics must
+be tested before enabling it. No People-folder cleanup or duplicate deletion
+was performed. The newly scraped age-decorated alias `Mai Takeda/28岁` is source
+data, not a canonical-name change or a claim that alias cleanup is complete.
+
 **Two different flows exist:** ordinary Emby actor metadata/image lookup, and
 database-backed **Identify & Publish**. The second includes canonical identity
 maintenance, INI generation, whole-table delivery and Emby refresh. A successful

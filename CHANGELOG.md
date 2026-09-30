@@ -5,6 +5,12 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- 2026-09-30 UTC: bridge1 recovery deployed and real actor enrichment/publication
+  canary verified through DB, GitHub INI, Emby replacement/restart, exact Person
+  refresh and fresh Actor Editor read. Preserved seven review-held mappings;
+  bulk inventory refresh is now opt-in in Windmill. Automatic Editor Save
+  publication and native Identify watcher recovery remain pending.
+
 - Actor bridge recovery (`bridge-2026.09.29.1`): restore authenticated whole-table
   actor substitution status/deploy endpoints to the SDK bridge image while
   retaining its provider adapters. Preserve unrelated JSON/XML settings and

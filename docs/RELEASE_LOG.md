@@ -1,9 +1,7 @@
 # Custom deployment release log
 
-Pending bridge-only recovery: `bridge-2026.09.29.1` restores authenticated actor
-publication endpoints omitted from the generic bridge image. No MetaTube
-server/Admin or provider-selection version change. Five isolated Python tests
-cover replacement, backup/idempotency, rollback, validation and authentication.
+Bridge-only recovery `bridge-2026.09.29.1` is deployed to bridge1. No MetaTube
+server/Admin or provider-selection version change; bridge2 remains unchanged.
 
 Use one row for every deployed custom build. The Git commit and deployed image
 must be filled with immutable identifiers so another operator or AI can verify
@@ -15,6 +13,7 @@ replacement for that operational history.
 
 | Release | Date | Git commit | Deployed image | Change | Verification |
 | --- | --- | --- | --- | --- | --- |
+| `bridge-2026.09.29.1` | 2026-09-30 UTC | `786ecfb` (implementation `925a934`) | `sha256:e9ef38e126f884caa370d31d53a782c871c65c85a64f1178c064545d5bbdc39a` | Restore authenticated actor whole-table publication, backups, atomic replacement, rollback and shared file lock in bridge1 | 5 isolated Python tests; real Mai Takeda canary, DB/GitHub/INI/JSON/XML agreement, observed Emby application restart and exact Person readback; details in actor flow doc |
 | `custom-2026.09.19.1` | 2026-09-19 | `91586cb` | `sha256:a3209f6b6cb8196005809962244f72a1bf87ddfe70c7699ff26ee012e99aa3cc` | Inline expandable video/actor enrichment jobs with run, step, native-log, and Graylog detail | Focused tests passed; live page hash `2d61d962…`; click/expand/collapse verified in browser |
 | `custom-2026.09.19.2` | 2026-09-19 | `5af8278` | `sha256:0129e6d41e6c522e17b3e7c02cec572a20940aa6f83564414ad5c2f4b945908c` | Expanded-trace error index with `Focus event`, plus fixes for the run/step tree `TypeError` and duplicated trace-level errors | `go test` for engine/route/internal passed; live page hash `2fb1ccd4…` on LAN and public; 18/18 headless-Chrome checks passed |
 | `custom-2026.09.19.3` | 2026-09-20 | `354ff8a` | `sha256:50b36ff9bfdd3c1c68cdeba60e5b0626790a7d5a3e7029f044d2ef2946c388ca` | Added an isolated `metatube2` application/database deployment for Emby while preserving the original JAV Master instance | Original and second provider APIs healthy; second Admin page hash `2fb1ccd4…` on LAN and HTTPS; NPM host online with a valid Let's Encrypt certificate |

@@ -1,0 +1,3 @@
+# Existing runtime layers are reused; Go build scratch stays on the host disk.
+FROM kinlshum/metatube-server-providers:emby-rollback-semaphore-20260930T042813Z
+COPY metatube-server /metatube-server

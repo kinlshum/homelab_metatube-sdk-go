@@ -1,7 +1,7 @@
 # Custom deployment release log
 
-Bridge-only baseline guard `bridge-2026.09.30.1` is deployed to bridge1. No MetaTube
-server/Admin or provider-selection version change; bridge2 remains unchanged.
+MetaTube2 runs `2026.09.30.2` with unified actor publication traces. Bridge1's
+baseline guard remains unchanged; MetaTube1 and bridge2 were not redeployed.
 
 Use one row for every deployed custom build. The Git commit and deployed image
 must be filled with immutable identifiers so another operator or AI can verify
@@ -13,6 +13,7 @@ replacement for that operational history.
 
 | Release | Date | Git commit | Deployed image | Change | Verification |
 | --- | --- | --- | --- | --- | --- |
+| `2026.09.30.2` | 2026-09-30 UTC | SDK `14899227ef591c647534fd85e8dcc5ca7d9fcd46`; Windmill `9bb8b7b`; Actor DB `c1cc130` | MetaTube2 `sha256:13bfa54affb370f5ec0bbc36d68fd68b488afa720013968187642d59862d74c2`; resolver `sha256:4b69ff7756b251bd798415daac2ff3c01c19077310d4bacdcc6c7ec634ed9eb9`; watcher `sha256:fbb6b133698a9cd0e1690486a7ba3023e058e78cc6d92aed4cfdd6dd442414c1` | Romanized-name recovery, consistent date selection/source-conflict review, Japanese-only Identify forwarding, durable publication trace projection | 112 Windmill/DB tests +7 subtests;17 resolver tests; Go trace/route suites. Exact 今井美優 → Miyu Imai live canary Applied, full-table hashes agree, Editor review note and five-trace grouped workflow verified. |
 | Actor integration `2.1.76` + watcher `outbox-20260930` | 2026-09-30 UTC | App `5728f465d324`; Actor DB `c96d998`; Windmill `54c54b3` | Exact app/watcher image IDs in `ACTOR_PUBLICATION_REGRESSION_20260930.md` | Automatic lossless Editor Save and enrichment share one Actor DB/outbox; future Identify watcher restored; seven old events held | Real enrichment + overview/mapping forward/restore all Applied; full effective table and exact Person restored; watcher runtime replay idempotent; no direct plugin-memory claim |
 | `actor-publication-v1` (backend) | 2026-09-30 UTC | Windmill `54c54b3`; Actor DB `e82ffcf`, watcher source `c96d998` | Windmill publisher `587ba5c082e22d4c`, producer `bcd48b22672be0c0`, drain `664343511048472a`; bridge unchanged | Atomic DB/outbox, one publication worker, scheduled delivery, compatible old/new enrichment entrypoints | 105 backend tests + 7 subtests; real exact-Person enrichment and idempotent replays Applied. App/watcher final acceptance tracked in regression record; not a MetaTube server version bump. |
 | `bridge-2026.09.30.1` | 2026-09-30 UTC | `c6058df` | `sha256:a2517e07a609bea8a65ff08a8ed26dd694979dc0697b8dcbf5f667f0a3c33ccb` | Optional actor-publication baseline CAS under shared lock; capability advertised | 8 isolated tests locally and on Kraken; live auth 401, wrong-baseline 409, provider stats 200, unchanged INI/JSON/XML hash; automatic Editor delivery still off |

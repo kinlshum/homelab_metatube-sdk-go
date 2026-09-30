@@ -11,6 +11,12 @@ idempotent replay, real Editor overview/mapping forward-and-restore tests and
 future-only watcher cutover have passed. Exact evidence is tracked in the
 [release regression record](ACTOR_PUBLICATION_REGRESSION_20260930.md).
 
+MetaTube2 release `2026.09.30.2` additionally mirrors these durable publication
+receipts into LOGS-METATUBE-ACTOR, grouped with collector lookups by request/run
+ID. Japanese-only native Identify now reaches the guarded enrichment producer.
+See [Romanized identity and unified trace acceptance](ACTOR_TRACE_UNIFIED_WORKFLOW.md)
+for the live 今井美優 canary, review evidence and correlation limitations.
+
 ```mermaid
 flowchart TD
   EDIT["Actor Editor Save / Mapping Save"] --> TX["Canonical Actor DB transaction"]

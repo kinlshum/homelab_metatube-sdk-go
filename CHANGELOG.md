@@ -16,6 +16,11 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
   expire unresolved cache quickly, and submit Japanese-only Identify to enrichment.
 - Preserve the existing deployed distinct-alias behavior; omit unknown birth
   year instead of emitting an unparseable question-mark canonical label.
+- Keep birth date/year selection consistent and retain conflicting source facts
+  as idempotent Actor Editor review notes. Live 今井美優 canary passed through
+  DB, complete INI, GitHub, plugin replacement/reload and exact Emby Person.
+- MetaTube2 deployed from `1489922`; MetaTube1 and provider infrastructure
+  unchanged. See `docs/ACTOR_TRACE_UNIFIED_WORKFLOW.md` for acceptance and limits.
 
 
 - 2026-09-30 UTC unified actor backend deployed: atomic enrichment + immutable

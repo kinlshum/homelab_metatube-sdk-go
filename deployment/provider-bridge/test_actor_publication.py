@@ -1,6 +1,6 @@
-import json,os,tempfile,unittest,xml.etree.ElementTree as ET
+import io,json,os,tempfile,unittest,xml.etree.ElementTree as ET
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch,Mock
 import actor_publication as a
 
 class PublicationTests(unittest.TestCase):
@@ -35,5 +35,15 @@ class PublicationTests(unittest.TestCase):
   self.assertEqual(a.status()['status'],'READY')
  def test_duplicate_keys_rejected(self):
   with self.assertRaises(ValueError):a.validate('a=A\na=B\n')
+ def test_auth_and_readonly_status_route(self):
+  token=self.root/'token';token.write_text('x'*32)
+  handler=Mock();handler.path='/v1/actor-substitutions/status';handler.command='GET'
+  handler.headers={};handler.wfile=io.BytesIO()
+  with patch.dict(os.environ,{'BRIDGE_TOKEN_FILE':str(token)}):
+   self.assertTrue(a.handle(handler));handler.send_response.assert_called_with(401)
+   handler.headers={'Authorization':'Bearer '+'x'*32};handler.wfile=io.BytesIO()
+   self.assertTrue(a.handle(handler));handler.send_response.assert_called_with(200)
+   self.assertEqual(json.loads(handler.wfile.getvalue())['status'],'READY')
+  self.assertEqual(self.paths['ini'].read_text(),'old=Old\n')
 
 if __name__=='__main__':unittest.main()

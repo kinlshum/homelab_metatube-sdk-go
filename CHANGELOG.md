@@ -5,6 +5,13 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+- Actor bridge recovery (`bridge-2026.09.29.1`): restore authenticated whole-table
+  actor substitution status/deploy endpoints to the SDK bridge image while
+  retaining its provider adapters. Preserve unrelated JSON/XML settings and
+  ownership, back up before replacement, verify hashes, roll back failed
+  writes, and serialize bridges through a shared file lock. Disk verification
+  is explicitly separate from the Emby plugin reload check.
+
 - Documentation (2026-09-29): recorded Actor Editor/shared-DB rollout checkpoint,
   verified compatibility schema and review-note writes, unchanged mapping hashes,
   and the blocked watcher endpoint/backlog. Updated final evidence for deployed

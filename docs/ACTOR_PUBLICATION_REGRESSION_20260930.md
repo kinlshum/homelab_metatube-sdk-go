@@ -58,6 +58,14 @@ source backup and private live report under Kraken
 `/mnt/cache_nvme_apps/appdata/metatube-stack/actor-cas-c6058df.HzpebJ/`.
 No Emby restart, actor edit or automatic-publication activation in this rollout.
 
+Fresh browser read after bridge rollout: live JAV Master is still `2.1.74`.
+Actor Editor loads 5,791 mappings; searching Mai Takeda shows the verified
+canonical group with 12 provider aliases, alongside separately flagged
+inventory proposals. UI still truthfully says Save changes PostgreSQL only
+and publishing is separate. This was read-only and is not the new Save-path
+canary. Candidate source checkpoints: Actor DB `e82ffcf` (full-schema test
+`43559c6`), Windmill `119a943`; app candidate remains with its coordinator.
+
 Never label file replacement alone as applied: direct plugin-memory table
 readback is unavailable with the current SimpleUI/API-key route. Evidence must
 state its real scope: file hashes, observed application restart when needed,

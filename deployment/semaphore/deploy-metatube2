@@ -85,7 +85,7 @@ docker compose up -d --no-deps --force-recreate "$service"
 admin_healthy=0
 for _ in {1..12}; do
   if curl --fail --silent --show-error --max-time 10 "$admin_url" |
-    grep -Fq 'MetaTube Admin'; then
+    grep -F 'MetaTube Admin' >/dev/null; then
     admin_healthy=1
     break
   fi
@@ -130,4 +130,3 @@ echo "MetaTube2 deployment verified"
 echo "Previous container: $deployed_before"
 echo "Deployed container: $deployed_after"
 echo "Rollback image: $rollback_image"
-

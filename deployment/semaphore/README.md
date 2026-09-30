@@ -52,3 +52,21 @@ Configured on the Unraid Semaphore server (`192.168.10.150`) on 2026-09-20:
   task `4` successfully upgraded MetaTube1 on 2026-09-20. The resulting image
   was `sha256:d4b2fa2068bbcbfa9964a9ca8742ace3366e9d42d3660dfd4e6a173b00d75eb3`;
   the rollback tag is recorded in `docs/DEPLOYMENT_LOG.md`.
+
+Kraken's Unraid root filesystem can lose this account, sudo rule, SSH allow-list
+entry, and installed wrappers after a reboot. The idempotent
+[`restore-kraken-deploy-access`](restore-kraken-deploy-access) script restores
+them from `/boot/config/custom/metatube-semaphore`. Its bundle must contain
+the two checked-in wrappers and `semaphore-metatube2.pub`, derived from the
+existing Semaphore Key Store private key. Only the public key belongs in the
+bundle. Invoke the script from `/boot/config/go` at startup and run it once
+after installation. Do not copy the private key to Kraken or Git.
+
+On 2026-09-30, the account and installed files were absent after an Unraid
+restart. The existing Key Store entry (`id=2`) was retained; its public key was
+derived locally and installed on Kraken. The restore bundle now lives at
+`/boot/config/custom/metatube-semaphore`, and `/boot/config/go` invokes it with
+`/bin/bash` because the flash filesystem is non-executable. A read-only SSH
+identity check with the saved key succeeded. `sshd -t`, `visudo -cf`, wrapper
+hashes, and a second idempotent restore run passed. A Semaphore deployment
+task has not been run as part of this access repair.

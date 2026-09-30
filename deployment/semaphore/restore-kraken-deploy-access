@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Install this bundle under /boot/config/custom/metatube-semaphore so Unraid's
+# in-memory account, SSH, and sudo configuration can be restored at each boot.
+readonly source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+readonly account=semaphore-metatube2
+readonly ssh_config=/etc/ssh/sshd_config
+readonly sudoers_file=/etc/sudoers.d/semaphore-metatube2
+
+for file in "$source_dir/$account.pub" "$source_dir/deploy-metatube1" "$source_dir/deploy-metatube2"; do
+  if [[ ! -s "$file" ]]; then
+    echo "Missing deployment access bundle file: $file" >&2
+    exit 66
+  fi
+done
+
+if ! id "$account" >/dev/null 2>&1; then
+  useradd --create-home --home-dir "/home/$account" --shell /bin/bash "$account"
+fi
+
+install -d -m 0700 -o "$account" -g "$account" "/home/$account/.ssh"
+install -m 0600 -o "$account" -g "$account" \
+  "$source_dir/$account.pub" "/home/$account/.ssh/authorized_keys"
+
+install -m 0755 -o root -g root \
+  "$source_dir/deploy-metatube1" /usr/local/sbin/deploy-metatube1
+install -m 0755 -o root -g root \
+  "$source_dir/deploy-metatube2" /usr/local/sbin/deploy-metatube2
+
+sudoers_tmp=$(mktemp /etc/sudoers.d/.semaphore-metatube2.XXXXXX)
+trap 'rm -f "$sudoers_tmp"' EXIT
+printf '%s\n' \
+  "$account ALL=(root) NOPASSWD: /usr/local/sbin/deploy-metatube1 \"\", /usr/local/sbin/deploy-metatube2 \"\"" \
+  >"$sudoers_tmp"
+chmod 0440 "$sudoers_tmp"
+visudo -cf "$sudoers_tmp" >/dev/null
+mv -f "$sudoers_tmp" "$sudoers_file"
+
+if ! grep -E '^AllowUsers[[:space:]]' "$ssh_config" | \
+  grep -Eq '(^|[[:space:]])semaphore-metatube2([[:space:]]|$)'; then
+  ssh_config_backup=$(mktemp /etc/ssh/.sshd_config.metatube.XXXXXX)
+  cp -p "$ssh_config" "$ssh_config_backup"
+  if grep -Eq '^AllowUsers[[:space:]]' "$ssh_config"; then
+    sed -i '/^AllowUsers[[:space:]]/s/$/ semaphore-metatube2/' "$ssh_config"
+  else
+    printf '\nAllowUsers %s\n' "$account" >>"$ssh_config"
+  fi
+  if ! /usr/sbin/sshd -t; then
+    cp -p "$ssh_config_backup" "$ssh_config"
+    rm -f "$ssh_config_backup"
+    echo 'SSH config validation failed; previous config restored' >&2
+    exit 1
+  fi
+  rm -f "$ssh_config_backup"
+  # Reload listener processes, leaving established SSH sessions intact.
+  while read -r pid; do
+    [[ -n "$pid" ]] && kill -HUP "$pid"
+  done < <(pgrep -f '^sshd: /usr/sbin/sshd.*\[listener\]' || true)
+fi
+
+echo "Restored $account with fixed MetaTube deployment commands"

@@ -15,6 +15,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from html.parser import HTMLParser
+import actor_publication
 
 FLARE_URL = os.getenv("FLARE_URL", "http://192.168.10.170:8191/v1")
 MDC_URL = os.getenv("MDC_URL", "http://192.168.10.170:9208")
@@ -747,7 +748,13 @@ def mdcng(number):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if not actor_publication.handle(self):
+            self.send_error(404)
+
     def do_GET(self):
+        if actor_publication.handle(self):
+            return
         if self.path == "/admin/stats":
             body = json.dumps({"flaresolverr": flaresolverr_stats()}, ensure_ascii=False).encode()
             self.send_response(200)

@@ -1,5 +1,10 @@
 # Custom deployment release log
 
+Pending bridge-only recovery: `bridge-2026.09.29.1` restores authenticated actor
+publication endpoints omitted from the generic bridge image. No MetaTube
+server/Admin or provider-selection version change. Five isolated Python tests
+cover replacement, backup/idempotency, rollback, validation and authentication.
+
 Use one row for every deployed custom build. The Git commit and deployed image
 must be filled with immutable identifiers so another operator or AI can verify
 which code is live.

@@ -416,8 +416,20 @@ func (s *Service) Finish(traceID string, input FinishInput) (*Run, error) {
 		"status":      status,
 		"duration_ms": duration,
 	}
+	if run.Operation == OperationPublish {
+		switch input.PublicationStatus {
+		case "saved", "pending", "files_verified", "reload_pending", "applied", "failed", "blocked":
+			updates["publication_status"] = input.PublicationStatus
+		}
+		switch input.PublicationOrigin {
+		case "actor_editor", "mapping_editor", "enrichment":
+			updates["publication_origin"] = input.PublicationOrigin
+		}
+	}
 	if TerminalStatus(status) {
 		updates["completed_at"] = now
+	} else {
+		updates["completed_at"] = nil
 	}
 	setIfPresent := func(column, value string, limit int) {
 		if sanitized := Truncate(SanitizeString(value), limit); sanitized != "" {

@@ -20,6 +20,7 @@ const (
 	OperationEnrich   = "enrich"
 	OperationRefresh  = "refresh"
 	OperationTest     = "test"
+	OperationPublish  = "publish"
 )
 
 // Statuses describe the lifecycle of a trace.
@@ -162,6 +163,8 @@ type Run struct {
 	ErrorCount         int        `gorm:"column:error_count" json:"error_count"`
 	EventCount         int        `gorm:"column:event_count" json:"event_count"`
 	DownstreamStatus   string     `gorm:"column:downstream_status;size:16;index" json:"downstream_status,omitempty"`
+	PublicationStatus  string     `gorm:"column:publication_status;size:32" json:"publication_status,omitempty"`
+	PublicationOrigin  string     `gorm:"column:publication_origin;size:32" json:"publication_origin,omitempty"`
 	ErrorCode          string     `gorm:"column:error_code;size:64" json:"error_code,omitempty"`
 	ErrorMessage       string     `gorm:"column:error_message;size:512" json:"error_message,omitempty"`
 	UpdatedAt          time.Time  `gorm:"column:updated_at" json:"updated_at"`
@@ -233,6 +236,8 @@ type StartInput struct {
 // FinishInput completes a trace.
 type FinishInput struct {
 	Status             string
+	PublicationStatus  string
+	PublicationOrigin  string
 	SelectedProvider   string
 	SelectedProviderID string
 	EmbyItemID         string

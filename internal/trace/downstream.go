@@ -33,6 +33,16 @@ type DownstreamState struct {
 // work succeeded (or partially succeeded) and whose downstream reporting is
 // incomplete are marked as awaiting.
 func DownstreamFor(run Run) DownstreamState {
+	if run.Operation == OperationPublish {
+		switch run.PublicationStatus {
+		case "applied":
+			return DownstreamState{Status: DownstreamComplete, Detail: "Applied receipt: INI files, reload and exact Person scope verified; not plugin-memory readback"}
+		case "failed", "blocked":
+			return DownstreamState{Status: DownstreamFailed, Detail: "Publication " + run.PublicationStatus + "; see durable Actor DB receipt"}
+		default:
+			return DownstreamState{Status: DownstreamNone, Awaiting: true, Detail: "Publication " + run.PublicationStatus + "; not yet Applied"}
+		}
+	}
 	status := run.DownstreamStatus
 	if !ValidDownstream(status) {
 		status = DownstreamNone

@@ -522,6 +522,8 @@ func getTraceStats(service *trace.Service, logs *logsearch.Searcher, mirror LogM
 
 type traceFinishBody struct {
 	Status             string              `json:"status"`
+	PublicationStatus  string              `json:"publication_status"`
+	PublicationOrigin  string              `json:"publication_origin"`
 	SelectedProvider   string              `json:"selected_provider"`
 	SelectedProviderID string              `json:"selected_provider_id"`
 	EmbyItemID         string              `json:"emby_item_id"`
@@ -589,6 +591,8 @@ func postTraceFinish(service *trace.Service) gin.HandlerFunc {
 
 		run, err := service.Finish(traceID, trace.FinishInput{
 			Status:             body.Status,
+			PublicationStatus:  body.PublicationStatus,
+			PublicationOrigin:  body.PublicationOrigin,
 			SelectedProvider:   body.SelectedProvider,
 			SelectedProviderID: body.SelectedProviderID,
 			EmbyItemID:         body.EmbyItemID,

@@ -2,11 +2,29 @@ import unittest
 import json
 import os
 import tempfile
+from unittest.mock import patch
+from urllib.error import HTTPError
 
 import resolver
 
 
 class ResolverTests(unittest.TestCase):
+    def test_minnano_challenge_uses_solver_and_heading_romanization(self):
+        document = '<h1>今井美優<span>いまいみゆ / Imai Miyu</span></h1>'
+        with patch.object(resolver, 'request_text', side_effect=HTTPError('https://example',403,'Forbidden',{},None)), patch.object(resolver,'flare_text',return_value=document) as solver:
+            detail = resolver.minnano_detail('123')
+        self.assertEqual(detail['name'], '今井美優')
+        self.assertEqual(resolver.western_name([detail], detail['aliases']), 'Miyu Imai')
+        solver.assert_called_once()
+
+    def test_social_handles_and_urls_are_not_names(self):
+        self.assertEqual(resolver.latin_alias(['@imai_miyu', 'https://x.com/imai_miyu', 'miyu123', '今井 Miyu', 'Imai Miyuu']), 'Imai Miyuu')
+        self.assertEqual(resolver.latin_alias(['@MiyuuImai']), '')
+
+    def test_unknown_birth_year_omitted_not_question_mark(self):
+        detail = dict(provider='Minnano-AV', id='123', name='今井美優', aliases=['Imai Miyu'])
+        self.assertEqual(resolver.merge('今井美優',[detail])['name'], 'Miyu Imai (JAP、今井美優)')
+
     def test_parses_minnano_profile_and_former_name(self):
         document = '''
         <script type="application/ld+json">{"@type":"Person","name":"あかね麗",
@@ -104,7 +122,7 @@ class ResolverTests(unittest.TestCase):
             "Also known as: En Mochizuki", "Mochizuki En",
         ]
         self.assertEqual(
-            ["望月円", "もちづきまどか", "En Mochizuki"],
+            ["もちづきまどか", "Mochizuki Madoka", "Madoka Mochizuki"],
             resolver.clean_aliases(aliases, "En Mochizuki (JAP、2005、望月円)"),
         )
 
@@ -113,7 +131,7 @@ class ResolverTests(unittest.TestCase):
             "水澄ひかり", "Hikari Mizusumashi/29岁", "みすみひかり", "Misumi Hikari",
         ]
         self.assertEqual(
-            ["水澄ひかり", "Hikari Misumi", "みすみひかり"],
+            ["Hikari Mizusumashi/29岁", "みすみひかり"],
             resolver.clean_aliases(aliases, "Hikari Misumi (JAP、1996、水澄ひかり)"),
         )
 

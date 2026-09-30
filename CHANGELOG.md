@@ -5,6 +5,19 @@ deployment revisions for this fork and do not replace upstream MetaTube tags.
 
 ## Unreleased
 
+## 2026.09.30.2 — actor identity recovery and unified publication traces
+
+- Separate publication receipt status from successful provider lookup in actor
+  traces; link immutable request/run IDs, exact Person IDs and Windmill jobs.
+- Windmill journals publication checkpoints and retries idempotent trace delivery
+  independently of publication; Applied receipts remain immutable.
+- Recover Minnano direct 403/503 through the configured solver, parse heading
+  Romanization when structured data is absent, validate Latin-name candidates,
+  expire unresolved cache quickly, and submit Japanese-only Identify to enrichment.
+- Preserve the existing deployed distinct-alias behavior; omit unknown birth
+  year instead of emitting an unparseable question-mark canonical label.
+
+
 - 2026-09-30 UTC unified actor backend deployed: atomic enrichment + immutable
   outbox, ordered publication-only worker, minute dispatcher and compatible old
   flow entrypoints. Real enrichment/replay verified; 105 backend regressions

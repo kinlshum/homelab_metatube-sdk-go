@@ -145,7 +145,7 @@
     <div id="traceVideoDrawerAnchor" hidden><div id="traceVideoDrawer"></div></div>
   </section>
   <section id="traceActorPage" class="card page hidden">
-    <div class="intro"><h1>MetaTube actor enrichment traces</h1><p>Structured actor identify and enrichment timelines: client, providers, throttle waits, cache, fallback, image injection, selection, Windmill, and Emby. Actor traces never appear in the video tab. <span class="live">Refreshes every 5 seconds while visible</span></p></div>
+    <div class="intro"><h1>MetaTube actor enrichment traces</h1><p>Lookup and unified publication runs: enrichment or Editor save → Actor DB → complete INI → GitHub → Emby replacement/reload → verified Applied receipt. Lookup success alone does not mean publication is Applied. Publication reports are asynchronous; Actor DB remains authoritative. <span class="live">Refreshes every 5 seconds while visible</span></p></div>
     <div class="ingestion-strip" data-ingestion="actor"></div>
     <section class="actor-context" id="actorContext"><h2>Related service logs <span class="badge warn">uncorrelated</span></h2><p class="note">Searches bounded Graylog context across approved actor services. A name and time match does not prove a line belongs to this actor or publication run. Empty search text shows all lines in the window.</p>
       <div class="controls"><input id="actorContextQ" type="text" maxlength="100" placeholder="Actor name or literal text (optional)"><select id="actorContextService"><option value="">All actor services</option><option value="metatube1">MetaTube 1</option><option value="metatube2">MetaTube 2</option><option value="bridge1">Provider bridge 1</option><option value="bridge2">Provider bridge 2</option><option value="resolver">Actor resolver</option><option value="watcher">Identify watcher</option><option value="browser">Actor browser</option><option value="windmill">Windmill</option><option value="emby">Emby</option><option value="actor-db">Actor database</option><option value="flaresolverr">FlareSolverr</option><option value="flaresolverr2">FlareSolverr 2</option></select><select id="actorContextWindow"><option value="5">Last 5 minutes</option><option value="30">Last 30 minutes</option><option value="trace">Selected trace ±2 minutes</option></select><button id="actorContextPrev" class="tab" title="Previous time window">‹</button><button id="actorContextNext" class="tab" title="Next time window">›</button><button id="actorContextSearch">Search logs</button></div>
@@ -208,6 +208,7 @@
   const traceControls=(kind,suffix)=>[traceEl(kind,suffix),traceEl(kind,suffix+'Bottom')];
   const traceMs=v=>`${Number(v||0).toFixed(Number(v)>=1000?0:1)} ms`;
   function traceStatusBadge(status){const meta=TRACE_STATUS_META[status]||['idle','•'];return `<span class="badge ${meta[0]}"><span aria-hidden="true">${meta[1]}</span>${esc(status||'unknown')}</span>`}
+  function publicationBadge(trace){if(trace.operation!=='publish')return '';const s=trace.publication_status||'awaiting report',tone=s==='applied'?'ok':['blocked','failed'].includes(s)?'bad':'warn';return `<span class="badge ${tone}">Publication: ${esc(s)}</span><div class="note">${esc(trace.publication_origin||'')}</div>`}
   function traceQuery(kind){const params=new URLSearchParams(),state=traceState[kind];params.set('kind',kind);
     const text=traceEl(kind,'Q').value.trim(),client=traceEl(kind,'Client').value.trim(),provider=traceEl(kind,'Provider').value.trim();
     if(text)params.set('q',text);if(client)params.set('client',client);if(provider)params.set('provider',provider);
@@ -228,7 +229,7 @@
         <td>${esc(trace.operation||'')}</td>
         <td class="note">${esc(trace.client_name||'unknown')}${trace.client_ip?`<div class="note mono">${esc(trace.client_ip)}</div>`:''}</td>
         <td>${esc(trace.selected_provider||'—')}${trace.selected_provider_id?`<div class="note mono">${esc(trace.selected_provider_id)}</div>`:''}</td>
-        <td>${traceStatusBadge(trace.status)} ${traceDownstreamMark(trace.downstream)} ${errors}</td>
+        <td>${trace.operation==='publish'?publicationBadge(trace):traceStatusBadge(trace.status)} ${trace.operation==='publish'?'':traceDownstreamMark(trace.downstream)} ${errors}</td>
         <td>${traceMs(trace.duration_ms)}</td>
         <td class="note">${esc(trace.windmill_job_id||'—')}</td>
         <td class="note">${esc(trace.emby_item_id||'—')}</td></tr>`}).join('')}
@@ -377,6 +378,7 @@
     return `<div class="drawer-head"><h2>${esc(trace.operation||'trace')} · ${esc(trace.kind||kind)}</h2>${traceStatusBadge(trace.status)} ${traceDownstreamMark(downstream)}<span class="grow"></span>${kind==='actor'?'<button data-action="related">Related service logs</button>':''}<button data-action="copy">Copy trace ID</button><button data-action="export">Export JSON</button><button data-action="logs">Show in LOGS</button><button data-action="delete">Delete</button><button data-action="close" class="tab">Close</button></div>
       ${errorIndexHtml(trace,errorEntries)}
       <div class="trace-meta">
+        ${trace.operation==='publish'?traceMeta('Publication',publicationBadge(trace)):''}
         ${traceMeta('Trace ID',`<span class="mono">${esc(trace.trace_id)}</span>`)}
         ${traceMeta('Query',esc(trace.query||'—'))}
         ${traceMeta('Client',`${esc(trace.client_name||'unknown')}<div class="note mono">${esc(trace.client_ip||'')}${trace.client_port?':'+esc(trace.client_port):''}</div>`)}

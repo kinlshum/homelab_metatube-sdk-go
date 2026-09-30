@@ -104,7 +104,7 @@ func ValidKind(kind string) bool {
 // ValidOperation reports whether an operation is supported.
 func ValidOperation(operation string) bool {
 	switch operation {
-	case OperationLookup, OperationIdentify, OperationEnrich, OperationRefresh, OperationTest:
+	case OperationLookup, OperationIdentify, OperationEnrich, OperationRefresh, OperationTest, OperationPublish:
 		return true
 	}
 	return false

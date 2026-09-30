@@ -7,6 +7,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from html import unescape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -16,6 +17,8 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
+NAME_PARSER_VERSION = 2
+UNRESOLVED_CACHE_TTL = 60
 SOURCE_ORDER = tuple(value.strip() for value in os.getenv(
     "SOURCE_ORDER", "AV-LEAGUE,XsList,JavLibrary,Minnano-AV,JAVDatabase,Babepedia,Gfriends"
 ).split(",") if value.strip())
@@ -86,11 +89,24 @@ def minnano_value(document, label):
 
 def minnano_detail(actor_id):
     homepage = f"https://www.minnano-av.com/actress{actor_id}.html"
-    document = request_text(homepage)
+    document = minnano_text(homepage)
     found = re.search(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>',
                       document, re.IGNORECASE | re.DOTALL)
     schema = json.loads(unescape(found.group(1))) if found else {}
-    aliases = [schema.get("alternateName", ""), schema.get("additionalName", "")]
+    if not isinstance(schema, dict):
+        schema = next((x for x in schema if isinstance(x, dict) and x.get('@type') == 'Person'), {})
+    if '@graph' in schema:
+        schema = next((x for x in schema['@graph'] if x.get('@type') == 'Person'), {})
+    aliases = []
+    for key in ('alternateName', 'additionalName'):
+        value = schema.get(key) or []
+        aliases.extend(value if isinstance(value, list) else [value])
+    heading = re.search(r'<h1[^>]*>(.*?)</h1>', document, re.I | re.S)
+    heading_name = ''
+    if heading:
+        heading_name = clean_html(re.split(r'<span\b', heading.group(1), flags=re.I)[0])
+        for span in re.findall(r'<span[^>]*>(.*?)</span>', heading.group(1), re.I | re.S):
+            aliases.extend(x.strip() for x in re.split(r'[/／]', clean_html(span)) if x.strip())
     former = minnano_value(document, "別名")
     former_match = re.match(r"(.+?)(?:【[^】]+】)?\s*（(.+?)）", former)
     if former_match:
@@ -105,7 +121,7 @@ def minnano_detail(actor_id):
     debut_match = re.search(r"（(\d{4})年(\d{2})月\s*(\d{2})日）", debut)
     sign_match = re.search(r"）\s*([^\s<]+座)", minnano_value(document, "生年月日"))
     return {
-        "id": str(actor_id), "name": schema.get("name", ""), "provider": "Minnano-AV",
+        "id": str(actor_id), "name": schema.get("name") or heading_name, "provider": "Minnano-AV",
         "homepage": homepage, "aliases": list(dict.fromkeys(value for value in aliases if value)),
         "images": [schema["image"]] if schema.get("image") else [],
         "birthday": schema.get("birthDate", ""),
@@ -120,11 +136,21 @@ def minnano_detail(actor_id):
     }
 
 
+def minnano_text(url):
+    """A direct challenge is not a missing identity; use our configured solver."""
+    try:
+        return request_text(url)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (403, 503):
+            raise
+        return flare_text(url)
+
+
 def minnano_search_detail(name):
     url = "https://www.minnano-av.com/search_result.php?" + urllib.parse.urlencode({
         "search_scope": "actress", "search_word": name, "search": "Go"
     })
-    document = request_text(url)
+    document = minnano_text(url)
     candidates = re.findall(r'(?:https://www\.minnano-av\.com/)?actress(\d+)\.html', document)
     for actor_id in dict.fromkeys(candidates):
         detail = minnano_detail(actor_id)
@@ -284,8 +310,11 @@ def japanese(value):
 
 def latin_alias(values):
     for value in values:
-        if value and re.search(r"[A-Za-z]", value) and not japanese(value):
-            return value.strip()
+        value = re.sub(r'/\d+.*$', '', value or '').strip()
+        # Never interpret a social handle, URL, mixed-language biography, or
+        # digit-bearing account name as a person's Romanized name.
+        if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*(?:\s+[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*){1,3}", value):
+            return ' '.join(value.split())
     return ""
 
 
@@ -306,13 +335,21 @@ def western_name(details, aliases):
 
 def clean_aliases(values, canonical_name):
     primary_latin = canonical_name.split(" (", 1)[0].strip()
+    primary_tokens = sorted(re.findall(r"[a-z0-9]+", primary_latin.casefold()))
+    canonical_match = re.search(r"\(JAP、(?:(?:\d{4}|\?)、)?([^()]+)\)\s*$", canonical_name)
+    primary_japanese = canonical_match.group(1).strip() if canonical_match else ""
     cleaned = []
     for value in values:
         value = re.sub(r"^Also known as:\s*", "", value or "", flags=re.IGNORECASE).strip()
         if not value:
             continue
-        if re.search(r"[A-Za-z]", value):
-            value = primary_latin
+        if value.casefold() in {primary_latin.casefold(), primary_japanese.casefold(), canonical_name.casefold()}:
+            continue
+        value_tokens = sorted(re.findall(r"[a-z0-9]+", value.casefold()))
+        if primary_tokens and value_tokens == primary_tokens:
+            continue
+        if re.search(r"\([^)]*JAP[、,][^)]*\)$", value, re.IGNORECASE):
+            continue
         if value and value.casefold() not in {item.casefold() for item in cleaned}:
             cleaned.append(value)
     return cleaned
@@ -448,7 +485,7 @@ def merge(name, details):
     year = birthday[:4] if birthday else ""
     canonical_name = english or original
     if english and original:
-        canonical_name = f"{english} (JAP、{year or '?'}、{original})"
+        canonical_name = f"{english} (JAP、{year}、{original})" if year else f"{english} (JAP、{original})"
     override = actor_override(name, aliases)
     if override:
         preferred = override.get("canonical", "").strip()
@@ -467,6 +504,10 @@ def merge(name, details):
                 aliases.append(value)
 
     fields = {}
+    aliases.sort(key=lambda value: (
+        0 if re.search(r"[\u3400-\u9fff]", value) else
+        1 if re.search(r"[\u3040-\u30ff]", value) else 2,
+        value.casefold(), value))
     provenance = {}
     for field in ("debut_date", "debut_title", "av_appearance_period", "blood_type",
                   "cup_size", "measurements", "nationality", "height", "hobby", "skill",
@@ -554,7 +595,8 @@ def resolve(name, refresh=False):
     with _lock:
         cache = load_cache()
         cached = cache.get(key)
-        if cached and not refresh and time.time() - cached["saved_at"] < CACHE_TTL:
+        ttl = CACHE_TTL if cached and latin_alias([cached['record']['name'].split(' (', 1)[0]]) else UNRESOLVED_CACHE_TTL
+        if cached and cached.get('name_parser_version') == NAME_PARSER_VERSION and not refresh and time.time() - cached["saved_at"] < ttl:
             record = dict(cached["record"])
             if preferred_name:
                 record["name"] = preferred_name
@@ -609,7 +651,7 @@ def resolve(name, refresh=False):
             record["aliases"].append(preferred_name)
     with _lock:
         cache = load_cache()
-        cache[key] = {"saved_at": time.time(), "record": record}
+        cache[key] = {"saved_at": time.time(), "record": record, "name_parser_version": NAME_PARSER_VERSION}
         save_cache(cache)
     return record
 

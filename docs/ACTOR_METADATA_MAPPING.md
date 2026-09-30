@@ -8,7 +8,7 @@ deployment log; the complete eight-source contract is not yet implemented.
 
 ## Runtime adapter checkpoint — 2026-09-30
 
-Candidate implementation: `deployment/actor_mapping_policy.py` is loaded into
+Runtime implementation: `deployment/actor_mapping_policy.py` is loaded into
 Windmill's deterministic producer bundle alongside the exact dictionary bytes
 and SHA256. It recognizes reviewed identities, filters provider aliases against
 the reviewed set, refuses an old duplicate Person as the canonical target,
@@ -29,6 +29,47 @@ The producer still fails closed and rolls back if the generated label differs
 from the reviewed dictionary. Both conflicting full birthdays share the approved
 year 1994; accepting that year does not resolve the day conflict. Old Person
 cleanup is left to a subsequent user scan and must be verified, not assumed.
+
+### User-test monitoring
+
+Release `actor-dictionary-2026.09.30.3` changes the three existing Windmill scripts,
+not the MetaTube server image, provider settings, Emby plugin DLL or database
+schema. Producer `d71f721b40099e49`, publisher `b229ba0f34f8ada2`, and drain
+`a61e9cd4cd24b6d3` use dictionary SHA256
+`90009eda00c1fd961087bd2b033864ab20af2ecdcf72ba4341bc80a13951bfa8`.
+The canonical and legacy enrichment entrypoints retain their resource bindings.
+
+Deployed read-only dry run `01a0f33a-2158-fefd-5bbc-9e7c270b2a41` completed in
+84.038 seconds. It returned the approved full name and exactly the three
+historical aliases. Four additional provider spellings were held for review;
+installed birthday 1994-02-13 was retained against the provider's 1994-02-14.
+Target DB state and installed INI remained unchanged, with zero outbox rows
+for request `f7ef3b6c-da29-4da9-86e2-79ce285a35bd`. This proves deployed
+collection/policy behavior, not a live publication. A five-minute read-only
+monitor is active for the user's next live Identify test.
+
+For the user's next Identify of the existing canonical Person `8827`, correlate
+the actual request ID, not a guessed actor/time match. Check these stages:
+
+1. Producer collects evidence and applies the reviewed dictionary. Expected
+   output is `Miyu Kanade (JAP、1994、かなで自由)`, not the old short display.
+2. The same transaction saves the actor, accepted aliases, review notes and
+   immutable outbox snapshot. Evidence is in `actor_source_facts` under
+   `actor-dictionary` and in the publication receipt.
+3. The normal ordered publisher delivers the full INI, verifies plugin files,
+   and performs a playback-safe reload only when required. Hash agreement and
+   observed reload are not direct inspection of plugin memory.
+4. Exact-Person readback verifies the standard name and metadata. The actor trace
+   includes `actor_dictionary_applied` with hash and decision counts, followed by
+   actual publication checkpoints; a successful lookup alone is not Applied.
+5. Actor Editor reads the same canonical revision; browser-visible confirmation
+   remains a separate check from DB publication. Review comments never become
+   name strings or alias keys.
+
+Monitoring is read-only: it must not start another enrichment, retry publication,
+restart services, delete Persons or move files. The old 白石 Person records were
+still readable with zero references at the previous check. Verify their state
+after the user's scan rather than claiming Emby necessarily removes them.
 
 Use the [machine-readable dictionary](actor-mapping/dictionary.json),
 [empty actor envelope](actor-mapping/template.json) and

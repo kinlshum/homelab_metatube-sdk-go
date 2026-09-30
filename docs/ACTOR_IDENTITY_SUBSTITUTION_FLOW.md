@@ -37,6 +37,11 @@ that no live publication/restart had been tested.
   does **not** claim direct readback of the plugin's in-memory table.
 - Backups and machine-readable acceptance are private on Kraken under
   `/mnt/cache_nvme_apps/appdata/actor-unification-20260929-holds/`.
+- JAV Master review-only release 2.1.74 (`7c4852864e23`) subsequently passed
+  health/auth checks. All seven held groups expose `needs_review` and their
+  publication-hold note. Independent browser search verified Tomoka's installed
+  mapping and `# needs review: publication_hold`; the owned rollout pause was
+  removed. This release did not change actor data or enable Save publication.
 
 Still incomplete: ordinary Editor Save is DB-only, not automatic publication;
 native Identify watcher endpoint/backlog recovery is not enabled. Seven

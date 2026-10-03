@@ -1,0 +1,42 @@
+{
+  "1": {
+    "service": "metatube",
+    "ip_suffix": "166",
+    "image_tag": "local",
+    "config_directory": "metatube-server-charleshuang233",
+    "admin_url": "https://metatube-admin.madtechinc.com",
+    "bridge_url": "http://provider-bridge:9210",
+    "gelf_service": "metatube-server",
+    "gelf_application": "metatube",
+    "database_host": "postgres",
+    "database_container": "metatube-postgres",
+    "database_directory": "/mnt/user/appdata/metatube/postgres",
+    "bridge_container": "metatube-provider-bridge",
+    "bridge_state_directory": "provider-bridge/state",
+    "bridge_host_port": "9210",
+    "solver_url": "http://flaresolverr:8191/v1",
+    "solver_container": "metatube-flaresolverr",
+    "solver_host_port": "8191",
+    "cleanup_config_file": ""
+  },
+  "2": {
+    "service": "metatube2",
+    "ip_suffix": "167",
+    "image_tag": "emby",
+    "config_directory": "metatube2-server",
+    "admin_url": "https://metatube-admin2.madtechinc.com",
+    "bridge_url": "http://provider-bridge2:9210",
+    "gelf_service": "metatube-emby",
+    "gelf_application": "metatube2",
+    "database_host": "metatube2-postgres",
+    "database_container": "metatube2-postgres",
+    "database_directory": "/mnt/user/appdata/metatube2/postgres",
+    "bridge_container": "metatube2-provider-bridge",
+    "bridge_state_directory": "provider-bridge2/state",
+    "bridge_host_port": "9212",
+    "solver_url": "http://flaresolverr2:8191/v1",
+    "solver_container": "metatube2-flaresolverr",
+    "solver_host_port": "8192",
+    "cleanup_config_file": "/run/secrets/emby_cleanup.json"
+  }
+}

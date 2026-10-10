@@ -199,6 +199,7 @@ class ResolverTests(unittest.TestCase):
         status, body = handler.send_json.call_args.args
         self.assertEqual(status, 404)
         self.assertEqual(body['source_status']['AV-LEAGUE'], 'identity mismatch')
+        self.assertEqual(body['source_priority'][-1], 'Gfriends')
         self.assertNotIn('data', body)
 
     def test_old_priority_cache_is_recollected_before_primary_id_selection(self):

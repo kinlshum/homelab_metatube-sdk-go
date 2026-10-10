@@ -1039,7 +1039,8 @@ class Handler(BaseHTTPRequestHandler):
                          error_type=type(error).__name__, source_status=error.source_status)
             append_resolve_event(event)
             self.send_json(404, {"error": "no actor match", "source_status": error.source_status,
-                                 "rejected_urls": error.rejected_urls})
+                                 "rejected_urls": error.rejected_urls,
+                                 "source_priority": list(SOURCE_PRIORITY)})
             return
         except Exception as error:
             event.update(status="failed", duration_ms=round((time.monotonic() - started) * 1000),

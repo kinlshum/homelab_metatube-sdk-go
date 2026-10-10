@@ -137,7 +137,9 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(resolver.SOURCE_ORDER[-1], 'Gfriends')
         primary = {'provider': 'AV-LEAGUE', 'id': '36135', 'name': 'みなと羽琉',
                    'aliases': ['Minato Haru'], 'birthday': '1996-06-09'}
-        placeholder = {'provider': 'Gfriends', 'id': 'portrait', 'name': 'みなと羽琉'}
+        placeholder = {'provider': 'Gfriends', 'id': 'portrait', 'name': 'みなと羽琉',
+                       'aliases': ['Wrong Name'], 'birthday': '2000-01-01',
+                       'images': ['portrait.jpg']}
         calls = []
         def detail(result):
             calls.append(result['provider'])
@@ -165,6 +167,11 @@ class ResolverTests(unittest.TestCase):
             fallback = resolver.resolve('みなと羽琉', refresh=True)
         self.assertEqual(calls, ['Gfriends'])
         self.assertEqual(fallback['source_status']['Gfriends'], 'found')
+        self.assertEqual(fallback['name'], 'みなと羽琉')
+        self.assertEqual(fallback['birthday'], '')
+        self.assertEqual(fallback['aliases'], [])
+        self.assertEqual(fallback['images'], ['portrait.jpg'])
+        self.assertEqual(fallback['external_ids'], {})
 
     def test_all_rejected_search_retains_source_evidence_without_a_fake_actor(self):
         candidate = {'provider': 'AV-LEAGUE', 'id': '456', 'name': 'みなと羽琉'}

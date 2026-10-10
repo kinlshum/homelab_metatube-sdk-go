@@ -769,7 +769,8 @@ def merge(name, details, identity=None):
     details = sorted(details, key=lambda item: len(SOURCE_PRIORITY) if item["provider"] == "Gfriends"
                      else SOURCE_PRIORITY.index(item["provider"])
                      if item["provider"] in SOURCE_PRIORITY else len(SOURCE_PRIORITY) - 1)
-    usable_details = [item for item in details if item["provider"] != "Gfriends"] or details
+    usable_details = [item for item in details if item["provider"] != "Gfriends"]
+    placeholder_only = not usable_details
     aliases = []
     images = []
     external_ids = {}
@@ -780,6 +781,10 @@ def merge(name, details, identity=None):
         if detail.get("homepage"):
             urls[detail["provider"]] = detail["homepage"]
         if detail not in usable_details:
+            if placeholder_only and detail["provider"] == "Gfriends":
+                for value in detail.get("images", []):
+                    if value and value not in images:
+                        images.append(value)
             continue
         for value in [detail.get("name", ""), *detail.get("aliases", [])]:
             if value and value.casefold() not in {item.casefold() for item in aliases}:
@@ -862,8 +867,9 @@ def merge(name, details, identity=None):
     # Choose the same verified source priority used for names and facts.
     stable_provider = next((provider for provider in SOURCE_PRIORITY
                             if provider in external_ids), details[0]["provider"])
+    stable_id = external_ids.get(stable_provider) or str(details[0]["id"])
     return {
-        "id": f"{stable_provider}:{external_ids[stable_provider]}",
+        "id": f"{stable_provider}:{stable_id}",
         "name": canonical_name,
         "original_name": original,
         "provider": "JAVActorResolver",

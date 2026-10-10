@@ -8,8 +8,13 @@ import time
 import urllib.parse
 import urllib.request
 import urllib.error
+import socket
+import uuid
+from datetime import datetime, timezone
+from http.client import HTTPException
 from html import unescape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from concurrent.futures import ThreadPoolExecutor, wait
 
 METATUBE_URL = os.getenv("METATUBE_URL", "http://metatube:8080").rstrip("/")
 PROVIDER_BRIDGE_URL = os.getenv("PROVIDER_BRIDGE_URL", "http://provider-bridge:9210").rstrip("/")
@@ -17,31 +22,175 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 2
+NAME_PARSER_VERSION = 5
+RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
+SOURCE_TIMEOUT = 25.0
+ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
+_request_context = threading.local()
 UNRESOLVED_CACHE_TTL = 60
-SOURCE_ORDER = tuple(value.strip() for value in os.getenv(
-    "SOURCE_ORDER", "AV-LEAGUE,XsList,JavLibrary,Minnano-AV,JAVDatabase,Babepedia,Gfriends"
-).split(",") if value.strip())
+SOURCE_PRIORITY = ("AV-LEAGUE", "Minnano-AV", "XsList", "JavLibrary", "JAV.LINK",
+                   "JAVModel", "JavDB", "JAVDatabase", "Babepedia", "Gfriends")
+_configured_sources = (value.strip() for value in os.getenv(
+    "SOURCE_ORDER", ",".join(SOURCE_PRIORITY)).split(","))
+SOURCE_ORDER = (SOURCE_PRIORITY[:-1] +
+                tuple(dict.fromkeys(value for value in _configured_sources
+                                        if value and value not in SOURCE_PRIORITY)) +
+                ("Gfriends",))
 TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "120"))
 _lock = threading.Lock()
+_event_lock = threading.Lock()
+TRACE_FILE = os.getenv("TRACE_FILE", "/data/resolve-events.jsonl")
+TRACE_READ_ALLOWED_IPS = set(value.strip() for value in os.getenv(
+    "TRACE_READ_ALLOWED_IPS", "192.168.10.167,192.168.10.170,127.0.0.1,::1"
+).split(",") if value.strip())
+
+
+class SourceIdentityMismatch(Exception):
+    def __init__(self, url):
+        super().__init__("source identity differs")
+        self.url = url
+
+
+def append_resolve_event(event):
+    """Keep a bounded, persistent receipt of resolver ingress and its result."""
+    line = json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n"
+    with _event_lock:
+        try:
+            os.makedirs(os.path.dirname(TRACE_FILE), exist_ok=True)
+            with open(TRACE_FILE, "a", encoding="utf-8") as stream:
+                stream.write(line)
+            if os.path.getsize(TRACE_FILE) > 2_000_000:
+                with open(TRACE_FILE, "r", encoding="utf-8") as stream:
+                    tail = stream.readlines()[-500:]
+                temporary = TRACE_FILE + ".tmp"
+                with open(temporary, "w", encoding="utf-8") as stream:
+                    stream.writelines(tail)
+                os.replace(temporary, TRACE_FILE)
+        except OSError as error:
+            print("resolver trace write failed: " + type(error).__name__, flush=True)
+
+
+def recent_resolve_events(name):
+    with _event_lock:
+        try:
+            with open(TRACE_FILE, "r", encoding="utf-8") as stream:
+                lines = stream.readlines()[-500:]
+        except FileNotFoundError:
+            return []
+        except OSError:
+            return []
+    events = []
+    for line in reversed(lines):
+        try:
+            event = json.loads(line)
+        except (ValueError, TypeError):
+            continue
+        if not name or event.get("name") == name:
+            events.append(event)
+        if len(events) >= (20 if name else 50):
+            break
+    return events
+
+
+def request_timeout():
+    remaining = getattr(_request_context, 'deadline', time.monotonic() + TIMEOUT) - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError('actor lookup deadline reached')
+    return min(TIMEOUT, SOURCE_TIMEOUT, remaining)
+
+
+def collect_sources(tasks, deadline, labels=None, outcomes=None, rejected_urls=None):
+    """Collect independently, in input order, without waiting for slow sources.
+
+    Workers only return source facts; they never write the resolver cache.
+    Propagate the absolute deadline through multi-request provider lookups.
+    """
+    if not tasks or time.monotonic() >= deadline:
+        return []
+    run_id = getattr(_request_context, 'run_id', '')
+    def collect(function, argument):
+        _request_context.deadline = deadline
+        _request_context.run_id = run_id
+        try:
+            return function(argument)
+        finally:
+            del _request_context.deadline
+            del _request_context.run_id
+    pool = ThreadPoolExecutor(max_workers=min(8, len(tasks)))
+    futures = [pool.submit(collect, function, argument) for function, argument in tasks]
+    try:
+        done, _ = wait(futures, timeout=max(0, deadline - time.monotonic()))
+        results = []
+        for index, future in enumerate(futures):
+            label = labels[index] if labels else None
+            if future not in done:
+                future.cancel()
+                if label and outcomes is not None:
+                    outcomes[label] = "timed out"
+                continue
+            try:
+                value = future.result()
+                if label and outcomes is not None:
+                    outcomes[label] = "found" if value else "no match"
+                if value:
+                    results.append(value)
+            except Exception as error:
+                if label and outcomes is not None:
+                    outcomes[label] = ("identity mismatch" if isinstance(error, SourceIdentityMismatch) else
+                                       "timed out" if isinstance(error, (TimeoutError, socket.timeout)) else "source error")
+                if label and rejected_urls is not None and isinstance(error, SourceIdentityMismatch):
+                    rejected_urls[label] = error.url
+                # Do not leak provider URLs, credentials or exception internals.
+                pass
+        return results
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def request_json(url):
-    request = urllib.request.Request(url, headers={"Accept": "application/json"})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return json.load(response)
+    headers = {"Accept": "application/json"}
+    if url.startswith(METATUBE_URL + "/v1/actors/"):
+        run_id = getattr(_request_context, 'run_id', '')
+        if run_id:
+            headers["X-MetaTube-Run-ID"] = run_id
+            headers["X-MetaTube-Client"] = "actor-resolver"
+    request = urllib.request.Request(url, headers=headers)
+    return json.loads(read_with_retry(request))
 
 
 def request_text(url):
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        return response.read().decode("utf-8", errors="replace")
+    return read_with_retry(request).decode("utf-8", errors="replace")
+
+
+def read_with_retry(request):
+    """Retry idempotent source GETs only, with fresh connections and a deadline."""
+    for attempt in range(3):
+        delay = 0.25 * (2 ** attempt)
+        try:
+            with urllib.request.urlopen(request, timeout=request_timeout()) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            retryable = error.code in (429, 500, 502, 503, 504)
+            retry_after = error.headers.get('Retry-After', '') if error.headers else ''
+            if retry_after.isdigit():
+                delay = max(delay, int(retry_after))
+            error.close()
+            if not retryable or attempt == 2:
+                raise
+        except (urllib.error.URLError, ConnectionError, socket.timeout, HTTPException):
+            if attempt == 2:
+                raise
+        if request.get_method() != 'GET' or delay >= request_timeout():
+            raise TimeoutError('actor source retry budget exhausted')
+        time.sleep(delay)
 
 
 def flare_text(url):
-    payload = json.dumps({"cmd": "request.get", "url": url, "maxTimeout": TIMEOUT * 1000}).encode()
+    timeout = request_timeout()
+    payload = json.dumps({"cmd": "request.get", "url": url, "maxTimeout": int(timeout * 1000)}).encode()
     request = urllib.request.Request(FLARE_URL, data=payload, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=TIMEOUT + 10) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         result = json.load(response)
     if result.get("status") != "ok":
         raise RuntimeError(result.get("message", "FlareSolverr request failed"))
@@ -87,6 +236,11 @@ def minnano_value(document, label):
     return clean_html(match.group(1)) if match else ""
 
 
+def minnano_values(document, label):
+    pattern = rf"<span[^>]*>\s*{re.escape(label)}\s*</span>\s*<p[^>]*>(.*?)</p>"
+    return [clean_html(match) for match in re.findall(pattern, document, re.IGNORECASE | re.DOTALL)]
+
+
 def minnano_detail(actor_id):
     homepage = f"https://www.minnano-av.com/actress{actor_id}.html"
     document = minnano_text(homepage)
@@ -98,6 +252,7 @@ def minnano_detail(actor_id):
     if '@graph' in schema:
         schema = next((x for x in schema['@graph'] if x.get('@type') == 'Person'), {})
     aliases = []
+    name_aliases = {}
     for key in ('alternateName', 'additionalName'):
         value = schema.get(key) or []
         aliases.extend(value if isinstance(value, list) else [value])
@@ -107,13 +262,18 @@ def minnano_detail(actor_id):
         heading_name = clean_html(re.split(r'<span\b', heading.group(1), flags=re.I)[0])
         for span in re.findall(r'<span[^>]*>(.*?)</span>', heading.group(1), re.I | re.S):
             aliases.extend(x.strip() for x in re.split(r'[/／]', clean_html(span)) if x.strip())
-    former = minnano_value(document, "別名")
-    former_match = re.match(r"(.+?)(?:【[^】]+】)?\s*（(.+?)）", former)
-    if former_match:
-        aliases.append(former_match.group(1).strip())
-        aliases.extend(value.strip() for value in former_match.group(2).split("/") if value.strip())
-    elif former:
-        aliases.append(former)
+    for former in minnano_values(document, "別名"):
+        former_match = re.match(r"(.+?)(?:【[^】]+】)?\s*（(.+?)）", former)
+        if former_match:
+            original_alias = former_match.group(1).strip()
+            aliases.append(original_alias)
+            values = [value.strip() for value in former_match.group(2).split("/") if value.strip()]
+            aliases.extend(values)
+            latin = latin_alias(values)
+            if latin:
+                name_aliases[original_alias] = latin
+        elif former:
+            aliases.append(former)
     size = minnano_value(document, "サイズ")
     height_match = re.search(r"T(\d+)", size)
     cup_match = re.search(r"([A-Z])カップ", size)
@@ -123,6 +283,7 @@ def minnano_detail(actor_id):
     return {
         "id": str(actor_id), "name": schema.get("name") or heading_name, "provider": "Minnano-AV",
         "homepage": homepage, "aliases": list(dict.fromkeys(value for value in aliases if value)),
+        "name_aliases": name_aliases,
         "images": [schema["image"]] if schema.get("image") else [],
         "birthday": schema.get("birthDate", ""),
         "debut_date": "-".join(debut_match.groups()) if debut_match else "",
@@ -146,16 +307,22 @@ def minnano_text(url):
         return flare_text(url)
 
 
-def minnano_search_detail(name):
-    url = "https://www.minnano-av.com/search_result.php?" + urllib.parse.urlencode({
-        "search_scope": "actress", "search_word": name, "search": "Go"
-    })
-    document = minnano_text(url)
-    candidates = re.findall(r'(?:https://www\.minnano-av\.com/)?actress(\d+)\.html', document)
-    for actor_id in dict.fromkeys(candidates):
-        detail = minnano_detail(actor_id)
-        if exact_match(detail, enrichment_identities([name])):
-            return detail
+def minnano_search_detail(names):
+    identities = [names] if isinstance(names, str) else list(names)
+    for name in identities:
+        if not name:
+            continue
+        url = "https://www.minnano-av.com/search_result.php?" + urllib.parse.urlencode({
+            "search_scope": "actress", "search_word": name, "search": "Go"
+        })
+        document = minnano_text(url)
+        candidates = re.findall(r'(?:https://www\.minnano-av\.com/)?actress(\d+)\.html', document)
+        for actor_id in dict.fromkeys(candidates):
+            detail = minnano_detail(actor_id)
+            # A Western name alone is ambiguous; verify the original Japanese
+            # name against the profile or one of its former-name aliases.
+            if exact_match(detail, [identities[0]]):
+                return detail
     return None
 
 
@@ -224,6 +391,8 @@ def javlibrary_detail(name):
 
 
 def babepedia_detail(names):
+    originals = {identity_key(name) for name in names if japanese(name)}
+    rejected_url = ""
     for name in names:
         if not name or japanese(name):
             continue
@@ -243,6 +412,9 @@ def babepedia_detail(names):
         document = flare_text(homepage)
         aliases_match = re.search(r'<h2[^>]*id="aka"[^>]*>(.*?)</h2>', document, re.IGNORECASE | re.DOTALL)
         aliases = [value.strip() for value in clean_html(aliases_match.group(1)).split(" - ") if value.strip()] if aliases_match else []
+        if originals and not any(identity_key(alias) in originals for alias in aliases if japanese(alias)):
+            rejected_url = homepage
+            continue
         born = profile_value(document, "Born")
         date_match = re.search(r"(\d{1,2})(?:st|nd|rd|th)? of ([A-Za-z]+) (\d{4})", born)
         birthday = ""
@@ -264,10 +436,14 @@ def babepedia_detail(names):
             "height": int(match.group(1)) if (match := re.search(r"(\d+) cm", profile_value(document, "Height"))) else 0,
             "hobby": "", "skill": "", "summary": clean_html(bio.group(1)) if bio else ""
         }
+    if rejected_url:
+        raise SourceIdentityMismatch(rejected_url)
     return None
 
 
 def javdatabase_detail(names):
+    japanese_names = {identity_key(name) for name in names if japanese(name)}
+    rejected_url = ""
     for name in names:
         if not name or japanese(name):
             continue
@@ -286,6 +462,11 @@ def javdatabase_detail(names):
             actor_name = re.sub(r"\s*-\s*JAV\s*Profile\s*$", "", clean_html(heading.group(1))) if heading else ""
             if not same_identity(actor_name, name):
                 continue
+            if japanese_names:
+                jp = re.search(r"\bJP:\s*([\u3040-\u30ff\u3400-\u9fff]+)", clean_html(document))
+                if not jp or identity_key(jp.group(1)) not in japanese_names:
+                    rejected_url = homepage
+                    continue
             def labeled(label):
                 found = re.search(rf'<b[^>]*>\s*{re.escape(label)}\s*:?</b>(.*?)(?:<b|<br|</p>)', document,
                                   re.IGNORECASE | re.DOTALL)
@@ -301,7 +482,91 @@ def javdatabase_detail(names):
                 "height": int(match.group(1)) if (match := re.search(r"(\d+)", labeled("Height"))) else 0,
                 "hobby": "", "skill": "", "summary": ""
             }
+    if rejected_url:
+        raise SourceIdentityMismatch(rejected_url)
     return None
+
+
+def javlink_detail(names):
+    originals = {identity_key(name) for name in names if japanese(name)}
+    if not originals:
+        return None
+    for name in names:
+        if japanese(name) or len(name.split()) != 2:
+            continue
+        slug = "-".join(name.casefold().split())
+        homepage = f"https://jav.link/jav/{urllib.parse.quote(slug)}/"
+        try:
+            document = request_text(homepage)
+        except (OSError, TimeoutError):
+            continue
+        heading = re.search(r"<h1[^>]*>(.*?)</h1>", document, re.I | re.S)
+        title = clean_html(heading.group(1)) if heading else ""
+        matched = re.match(r"(.+?)\s+-\s+([\u3040-\u30ff\u3400-\u9fff]+)", title)
+        if not matched or identity_key(matched.group(2)) not in originals:
+            continue
+        text = clean_html(document)
+        born = re.search(r"Born\s*:\s*(\d{2})/(\d{2})/(\d{4})", text, re.I)
+        size = {}
+        for field in ("Breast", "Waist", "Hip", "Height"):
+            found = re.search(rf"{field}\s*:\s*(\d+)\s*cm", text, re.I)
+            size[field] = found.group(1) if found else ""
+        return {"provider": "JAV.LINK", "id": slug, "homepage": homepage,
+                "name": matched.group(2), "aliases": [matched.group(1)], "images": [],
+                "birthday": f"{born.group(3)}-{born.group(1)}-{born.group(2)}" if born else "",
+                "measurements": "/".join(f"{code}{size[field]}" for field, code in
+                                         (("Breast", "B"), ("Waist", "W"), ("Hip", "H")) if size[field]),
+                "height": int(size["Height"]) if size["Height"] else 0}
+    return None
+
+
+def javmodel_detail(names):
+    originals = {identity_key(name) for name in names if japanese(name)}
+    if not originals:
+        return None
+    for name in names:
+        if japanese(name) or len(name.split()) != 2:
+            continue
+        slug = "-".join(name.casefold().split())
+        homepage = f"https://javmodel.com/jav/{urllib.parse.quote(slug)}/"
+        try:
+            document = request_text(homepage)
+        except (OSError, TimeoutError):
+            continue
+        heading = re.search(r"<h1[^>]*>(.*?)</h1>", document, re.I | re.S)
+        subheading = re.search(r"<h2[^>]*>(.*?)</h2>", document, re.I | re.S)
+        title = clean_html(heading.group(1)) if heading else ""
+        subtitle = clean_html(subheading.group(1)) if subheading else ""
+        matched_japanese = next((part for part in re.findall(r"[\u3040-\u30ff\u3400-\u9fff]+", subtitle)
+                                 if identity_key(part) in originals), "")
+        if not matched_japanese or not same_identity(title, name):
+            continue
+        text = clean_html(document)
+        born = re.search(r"Born\s*:\s*(\d{2})/(\d{2})/(\d{4})", text, re.I)
+        return {"provider": "JAVModel", "id": slug, "homepage": homepage,
+                "name": matched_japanese, "aliases": [title], "images": [],
+                "birthday": f"{born.group(3)}-{born.group(1)}-{born.group(2)}" if born else ""}
+    return None
+
+
+def javdb_detail(identity):
+    if not identity:
+        return None
+    external = identity.get("external_ids") or {}
+    actor_id = external.get("JavDB") or external.get("JavdbActor") or external.get("javdb")
+    if not actor_id or not re.fullmatch(r"[A-Za-z0-9]+", str(actor_id)):
+        return None
+    homepage = f"https://javdb.com/actors/{actor_id}"
+    try:
+        document = request_text(homepage)
+    except (OSError, TimeoutError):
+        return None
+    text = clean_html(document)
+    original = identity.get("japanese_name") or ""
+    if not original or identity_key(original) not in {identity_key(part) for part in re.findall(r"[\u3040-\u30ff\u3400-\u9fff]+", text[:3000])}:
+        raise SourceIdentityMismatch(homepage)
+    return {"provider": "JavDB", "id": str(actor_id), "homepage": homepage,
+            "name": original, "aliases": [], "images": []}
 
 
 def japanese(value):
@@ -310,16 +575,20 @@ def japanese(value):
 
 def latin_alias(values):
     for value in values:
-        value = re.sub(r'/\d+.*$', '', value or '').strip()
+        value = re.sub(r'/\s*\d{1,3}\s*[岁歳]\s*$', '', value or '').strip()
         # Never interpret a social handle, URL, mixed-language biography, or
         # digit-bearing account name as a person's Romanized name.
-        if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*(?:\s+[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*){1,3}", value):
+        if re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*(?:\s+[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*){0,3}", value):
             return ' '.join(value.split())
     return ""
 
 
-def western_name(details, aliases):
+def western_name(details, aliases, original_name=""):
     """Choose a Western name from sources whose Romanization order is known."""
+    for detail in details:
+        mapped = detail.get("name_aliases", {}).get(original_name, "")
+        if mapped and detail.get("provider") == "Minnano-AV":
+            return mapped
     for provider in ("JavLibrary", "Minnano-AV"):
         for detail in details:
             if detail.get("provider") != provider:
@@ -342,6 +611,9 @@ def clean_aliases(values, canonical_name):
     for value in values:
         value = re.sub(r"^Also known as:\s*", "", value or "", flags=re.IGNORECASE).strip()
         if not value:
+            continue
+        # Age annotations are source facts, not durable identity aliases.
+        if re.search(r'/\s*\d{1,3}\s*[岁歳]\s*$', value):
             continue
         if value.casefold() in {primary_latin.casefold(), primary_japanese.casefold(), canonical_name.casefold()}:
             continue
@@ -369,6 +641,31 @@ def lookup_name(value):
 def mapped_canonical_name(value):
     value = re.sub(r"^\[JAV_CUSTOM_PROVIDER\]\s*", "", value.strip())
     return value if re.search(r"\([^()]*、[^()]*、[^()]+\)\s*$", value) else ""
+
+
+def actor_db_identity(name):
+    """Use the existing read-only Admin2 Actor DB view for an exact identity.
+
+    A provider timeout must never invent a name or block Emby indefinitely.
+    """
+    if not ACTOR_DB_LOOKUP_URL or not japanese(name):
+        return None
+    query = urllib.parse.urlencode({"name": name, "mode": "stored"})
+    try:
+        request = urllib.request.Request(ACTOR_DB_LOOKUP_URL + "?" + query,
+                                         headers={"Accept": "application/json"})
+        with urllib.request.urlopen(request, timeout=3) as response:
+            payload = json.load(response)
+    except (OSError, ValueError, TimeoutError):
+        return None
+    actor = payload.get("actor_db") or {}
+    aliases = [row.get("alias", "") for row in actor.get("mapping", [])]
+    if name != actor.get("japanese_name") and name not in aliases:
+        return None
+    western = latin_alias([actor.get("western_name", ""), actor.get("name", "").split(" (", 1)[0]])
+    return {"western_name": western, "actor_id": actor.get("actor_id", ""),
+            "japanese_name": actor.get("japanese_name", ""),
+            "external_ids": actor.get("external_ids") or {}} if western else None
 
 
 def iso_date(value):
@@ -461,17 +758,22 @@ def place_of_birth(details):
     return "", ""
 
 
-def merge(name, details):
-    details = sorted(details, key=lambda item: SOURCE_ORDER.index(item["provider"])
-                     if item["provider"] in SOURCE_ORDER else len(SOURCE_ORDER))
+def merge(name, details, identity=None):
+    details = sorted(details, key=lambda item: len(SOURCE_PRIORITY) if item["provider"] == "Gfriends"
+                     else SOURCE_PRIORITY.index(item["provider"])
+                     if item["provider"] in SOURCE_PRIORITY else len(SOURCE_PRIORITY) - 1)
+    usable_details = [item for item in details if item["provider"] != "Gfriends"] or details
     aliases = []
     images = []
     external_ids = {}
     urls = {}
     for detail in details:
-        external_ids[detail["provider"]] = str(detail["id"])
+        if detail["provider"] in {row["provider"] for row in usable_details}:
+            external_ids[detail["provider"]] = str(detail["id"])
         if detail.get("homepage"):
             urls[detail["provider"]] = detail["homepage"]
+        if detail not in usable_details:
+            continue
         for value in [detail.get("name", ""), *detail.get("aliases", [])]:
             if value and value.casefold() not in {item.casefold() for item in aliases}:
                 aliases.append(value)
@@ -479,9 +781,9 @@ def merge(name, details):
             if value and value not in images:
                 images.append(value)
 
-    english = western_name(details, aliases)
     original = name if japanese(name) else next((value for value in aliases if japanese(value)), name)
-    birthday, birthday_source = first_date(details, "birthday")
+    english = (identity or {}).get("western_name") or western_name(usable_details, aliases, original)
+    birthday, birthday_source = first_date(usable_details, "birthday")
     year = birthday[:4] if birthday else ""
     canonical_name = english or original
     if english and original:
@@ -513,15 +815,17 @@ def merge(name, details):
                   "cup_size", "measurements", "nationality", "height", "hobby", "skill",
                   "summary", "sign"):
         if field in ("debut_date", "debut_title", "av_appearance_period"):
-            value, source = first_from(details, field, ("Minnano-AV",))
+            value, source = first_from(usable_details, field, ("Minnano-AV",))
         else:
-            value, source = first(details, field)
+            value, source = first(usable_details, field)
         fields[field] = value
         if source:
             provenance[field] = source
     if birthday:
         provenance["birthday"] = birthday_source
-    fields["place_of_birth"], source = place_of_birth(details)
+    if identity and identity.get("western_name"):
+        provenance["western_name"] = "Actor DB"
+    fields["place_of_birth"], source = place_of_birth(usable_details)
     if source:
         provenance["place_of_birth"] = source
     if override:
@@ -541,14 +845,15 @@ def merge(name, details):
     conflicts = {}
     for field in ("birthday", "blood_type", "cup_size", "measurements", "height"):
         values = {}
-        for detail in details:
+        for detail in usable_details:
             value = iso_date(detail.get(field)) if field == "birthday" else detail.get(field)
             if value not in (None, "", 0):
                 values.setdefault(str(value), []).append(detail["provider"])
         if len(values) > 1:
             conflicts[field] = values
 
-    stable_provider = next((provider for provider in ("AV-LEAGUE", "Gfriends", "XsList", "Minnano-AV")
+    # Keep existing resolver IDs stable while moving the image-only fallback last.
+    stable_provider = next((provider for provider in ("AV-LEAGUE", "XsList", "Minnano-AV", "JavLibrary", "JAV.LINK", "JAVDatabase", "Babepedia", "Gfriends")
                             if provider in external_ids), details[0]["provider"])
     return {
         "id": f"{stable_provider}:{external_ids[stable_provider]}",
@@ -563,9 +868,9 @@ def merge(name, details):
         "debut_title": fields["debut_title"],
         "av_appearance_period": fields["av_appearance_period"],
         "tags": list(dict.fromkeys(
-            value for detail in details for value in detail.get("tags", []) if value
+            value for detail in usable_details for value in detail.get("tags", []) if value
         )) if not override else list(dict.fromkeys([
-            *(value for detail in details for value in detail.get("tags", []) if value),
+            *(value for detail in usable_details for value in detail.get("tags", []) if value),
             *override.get("tags", []),
         ])),
         "blood_type": fields["blood_type"],
@@ -586,7 +891,18 @@ def merge(name, details):
     }
 
 
-def resolve(name, refresh=False):
+def resolve(name, refresh=False, run_id=''):
+    deadline = time.monotonic() + RESOLVE_BUDGET
+    _request_context.deadline = deadline
+    _request_context.run_id = run_id
+    try:
+        return resolve_with_deadline(name, refresh, deadline)
+    finally:
+        del _request_context.deadline
+        del _request_context.run_id
+
+
+def resolve_with_deadline(name, refresh, deadline):
     preferred_name = mapped_canonical_name(name)
     name = lookup_name(name)
     key = name.casefold()
@@ -602,23 +918,28 @@ def resolve(name, refresh=False):
                 record["name"] = preferred_name
             return record
 
+    identity = actor_db_identity(search_name)
+    outcomes = {provider: "not returned by search" for provider in SOURCE_ORDER}
+    rejected_urls = {}
+
     search_url = f"{METATUBE_URL}/v1/actors/search?" + urllib.parse.urlencode({
         "q": search_name.strip(), "fallback": "true"
     })
-    results = request_json(search_url).get("data", [])
+    # Bound even the initial search: socket timeouts are not whole-request
+    # deadlines when a peer keeps trickling bytes.
+    search_outcome = {}
+    searched = collect_sources([(request_json, search_url)], min(deadline, time.monotonic() + SOURCE_TIMEOUT),
+                               ["MetaTube search"], search_outcome)
+    if search_outcome.get("MetaTube search") != "found":
+        outcomes = {provider: "search incomplete" for provider in SOURCE_ORDER}
+    results = searched[0].get("data", []) if searched else []
     identities = [search_name.strip()]
     matched = [result for result in results if exact_match(result, identities)]
-    details = []
-    for result in matched:
-        try:
-            detail = actor_detail(result)
-            if detail:
-                details.append(detail)
-        except Exception as error:
-            print(f"actor source failed: {result.get('provider')}: {error}", flush=True)
-    if not details:
-        raise LookupError(f"no actor match for {name}")
-    present = {detail["provider"] for detail in details}
+    placeholder_results = [result for result in matched if result['provider'] == 'Gfriends']
+    primary_results = [result for result in matched if result['provider'] != 'Gfriends']
+    tasks = [(actor_detail, result) for result in primary_results]
+    labels = [result["provider"] for result in primary_results]
+    present = {result['provider'] for result in primary_results}
     for provider, lookup in (
         ("XsList", xslist_search_detail),
         ("JavLibrary", javlibrary_detail),
@@ -626,25 +947,38 @@ def resolve(name, refresh=False):
     ):
         if provider in present:
             continue
-        try:
-            detail = lookup(search_name.strip())
-            if detail:
-                details.append(detail)
-                present.add(provider)
-        except Exception as error:
-            print(f"actor direct source failed: {provider}: {error}", flush=True)
-    enrichment_names = []
+        argument = (search_name.strip(), identity["western_name"]) if provider == "Minnano-AV" and identity else search_name.strip()
+        tasks.append((lookup, argument))
+        labels.append(provider)
+    # Reserve time for secondary evidence, but do not serialize independent
+    # primary sources behind a slow/challenged optional provider.
+    details = collect_sources(tasks, min(deadline, time.monotonic() + 40), labels, outcomes, rejected_urls)
+    enrichment_names = [search_name.strip()]
     for detail in details:
         enrichment_names.extend([detail.get("name", ""), *detail.get("aliases", [])])
-    for provider, lookup in (("JAVDatabase", javdatabase_detail), ("Babepedia", babepedia_detail)):
-        try:
-            detail = lookup(enrichment_identities(enrichment_names))
-            if detail:
-                details.append(detail)
-                enrichment_names.extend([detail.get("name", ""), *detail.get("aliases", [])])
-        except Exception as error:
-            print(f"actor enrichment failed: {provider}: {error}", flush=True)
-    record = merge(search_name.strip(), details)
+    if identity:
+        enrichment_names.append(identity["western_name"])
+    secondary = [("JAVDatabase", javdatabase_detail), ("Babepedia", babepedia_detail),
+                 ("JAV.LINK", javlink_detail), ("JAVModel", javmodel_detail),
+                 ("JavDB", javdb_detail)]
+    details.extend(collect_sources([(lookup, identity if provider == "JavDB" else enrichment_identities(enrichment_names))
+                                    for provider, lookup in secondary],
+                                   deadline, [provider for provider, _ in secondary], outcomes, rejected_urls))
+    if details:
+        outcomes["Gfriends"] = "placeholder (not needed)"
+    elif placeholder_results:
+        details = collect_sources([(actor_detail, result) for result in placeholder_results],
+                                  deadline, ["Gfriends"] * len(placeholder_results),
+                                  outcomes, rejected_urls)
+    if not details:
+        raise LookupError(f"no actor match for {name}")
+    record = merge(search_name.strip(), details, identity)
+    record["source_status"] = outcomes
+    record["source_priority"] = list(SOURCE_PRIORITY)
+    record["rejected_urls"] = rejected_urls
+    record["source_search_status"] = search_outcome.get("MetaTube search", "not started")
+    if identity:
+        record["actor_db_identity"] = identity["actor_id"]
     if preferred_name:
         record["name"] = preferred_name
         if preferred_name.casefold() not in {value.casefold() for value in record["aliases"]}:
@@ -670,6 +1004,16 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/health":
             self.send_json(200, {"status": "ok"})
             return
+        if parsed.path == "/trace/recent":
+            if self.client_address[0] not in TRACE_READ_ALLOWED_IPS:
+                self.send_json(403, {"error": "not allowed"})
+                return
+            name = urllib.parse.parse_qs(parsed.query).get("name", [""])[0].strip()
+            if len(name) > 100:
+                self.send_json(400, {"error": "name must be up to 100 characters"})
+                return
+            self.send_json(200, {"events": recent_resolve_events(name)})
+            return
         if parsed.path != "/resolve":
             self.send_json(404, {"error": "not found"})
             return
@@ -678,10 +1022,26 @@ class Handler(BaseHTTPRequestHandler):
         if not name:
             self.send_json(400, {"error": "name is required"})
             return
+        started = time.monotonic()
+        event = {"request_id": str(uuid.uuid4()), "started_at": datetime.now(timezone.utc).isoformat(),
+                 "name": name[:100], "client_ip": self.client_address[0], "status": "started"}
         try:
-            self.send_json(200, {"data": resolve(name, query.get("refresh", [""])[0] == "true")})
+            record = resolve(name, query.get("refresh", [""])[0] == "true", event["request_id"])
         except Exception as error:
+            event.update(status="failed", duration_ms=round((time.monotonic() - started) * 1000),
+                         error_type=type(error).__name__)
+            append_resolve_event(event)
             self.send_json(404, {"error": str(error)})
+            return
+        event.update(status="resolved", duration_ms=round((time.monotonic() - started) * 1000),
+                     formed_name=record.get("name", ""), sources=record.get("sources", []),
+                     external_ids=record.get("external_ids", {}))
+        append_resolve_event(event)
+        try:
+            self.send_json(200, {"data": record})
+        except (BrokenPipeError, ConnectionResetError):
+            # A disconnected client is not a second 404 response.
+            return
 
     def log_message(self, message, *args):
         print(f"{self.client_address[0]} {message % args}", flush=True)

@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 7  # Invalidate cached Gfriends-only metadata from identity/overrides.
+NAME_PARSER_VERSION = 8  # Rebuild cached names with verified Actor DB birth-year fallback.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -670,8 +670,11 @@ def actor_db_identity(name):
     if name != actor.get("japanese_name") and name not in aliases:
         return None
     western = latin_alias([actor.get("western_name", ""), actor.get("name", "").split(" (", 1)[0]])
+    canonical = re.fullmatch(r"[^()]+ \(JAP、((?:19|20)\d{2})、([^()]+)\)", actor.get("name", ""))
+    birth_year = canonical.group(1) if canonical and canonical.group(2) == actor.get("japanese_name") else ""
     return {"western_name": western, "actor_id": actor.get("actor_id", ""),
             "japanese_name": actor.get("japanese_name", ""),
+            "birth_year": birth_year,
             "external_ids": actor.get("external_ids") or {}} if western else None
 
 
@@ -800,7 +803,7 @@ def merge(name, details, identity=None):
     original = name if japanese(name) else next((value for value in aliases if japanese(value)), name)
     english = (identity or {}).get("western_name") or western_name(usable_details, aliases, original)
     birthday, birthday_source = first_date(usable_details, "birthday")
-    year = birthday[:4] if birthday else ""
+    year = birthday[:4] if birthday else (identity or {}).get("birth_year", "")
     canonical_name = english or original
     if english and original:
         canonical_name = f"{english} (JAP、{year}、{original})" if year else f"{english} (JAP、{original})"
@@ -839,6 +842,8 @@ def merge(name, details, identity=None):
             provenance[field] = source
     if birthday:
         provenance["birthday"] = birthday_source
+    elif year and identity:
+        provenance["birth_year"] = "Actor DB"
     if identity and identity.get("western_name"):
         provenance["western_name"] = "Actor DB"
     fields["place_of_birth"], source = place_of_birth(usable_details)

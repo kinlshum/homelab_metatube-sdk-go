@@ -136,7 +136,8 @@ class ResolverTests(unittest.TestCase):
                     'homepage': 'https://example.test/portrait',
                     'aliases': ['Bad Western Name'], 'images': ['portrait.jpg'],
                     'birthday': '2000-01-01', 'summary': 'Unverified biography'}
-        identity = {'actor_id': 'actor-123', 'western_name': 'Existing Western Name'}
+        identity = {'actor_id': 'actor-123', 'western_name': 'Existing Western Name',
+                    'birth_year': '1996'}
         override = {'canonical': 'Override Western Name', 'birth_year': '1996',
                     'aliases': ['Other Western Name'], 'birthday': '1996-06-09',
                     'external_ids': {'AV-LEAGUE': 'unverified-id'}}
@@ -315,6 +316,24 @@ class ResolverTests(unittest.TestCase):
         record = resolver.merge('みなと羽琉', [detail], identity)
         self.assertEqual(record['name'], 'Minato Haru (JAP、1996、みなと羽琉)')
         self.assertEqual(record['provenance']['western_name'], 'Actor DB')
+
+    def test_verified_profile_keeps_exact_actor_db_birth_year_when_dates_time_out(self):
+        self.lookups[-1].stop()
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self): return json.dumps({'actor_db': {'actor_id': 'actor-85',
+                'name': 'Moa Horikita (JAP、2004、堀北桃愛)', 'western_name': 'Moa Horikita',
+                'japanese_name': '堀北桃愛', 'mapping': []}}).encode()
+        with patch.object(resolver.urllib.request, 'urlopen', return_value=Response()):
+            identity = resolver.actor_db_identity('堀北桃愛')
+        self.assertEqual(identity['birth_year'], '2004')
+        detail = {'provider': 'JAV.LINK', 'id': 'moa-horikita', 'name': '堀北桃愛',
+                  'aliases': ['Moa Horikita'], 'birthday': ''}
+        record = resolver.merge('堀北桃愛', [detail], identity)
+        self.assertEqual(record['name'], 'Moa Horikita (JAP、2004、堀北桃愛)')
+        self.assertEqual(record['birthday'], '')
+        self.assertEqual(record['provenance']['birth_year'], 'Actor DB')
 
     def test_javlink_requires_matching_japanese_name(self):
         self.lookups[-2].stop()

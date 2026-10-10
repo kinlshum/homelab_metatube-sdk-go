@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 6  # Recollect source order and rejected-profile evidence.
+NAME_PARSER_VERSION = 7  # Invalidate cached Gfriends-only metadata from identity/overrides.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -771,6 +771,10 @@ def merge(name, details, identity=None):
                      if item["provider"] in SOURCE_PRIORITY else len(SOURCE_PRIORITY) - 1)
     usable_details = [item for item in details if item["provider"] != "Gfriends"]
     placeholder_only = not usable_details
+    if placeholder_only:
+        # Existing Actor DB identities may guide discovery, but a Gfriends-only
+        # result must never launder those facts into a publishable profile.
+        identity = None
     aliases = []
     images = []
     external_ids = {}
@@ -800,7 +804,7 @@ def merge(name, details, identity=None):
     canonical_name = english or original
     if english and original:
         canonical_name = f"{english} (JAP、{year}、{original})" if year else f"{english} (JAP、{original})"
-    override = actor_override(name, aliases)
+    override = None if placeholder_only else actor_override(name, aliases)
     if override:
         preferred = override.get("canonical", "").strip()
         original = override.get("original", original).strip()
@@ -927,7 +931,7 @@ def resolve_with_deadline(name, refresh, deadline):
         ttl = CACHE_TTL if cached and latin_alias([cached['record']['name'].split(' (', 1)[0]]) else UNRESOLVED_CACHE_TTL
         if cached and cached.get('name_parser_version') == NAME_PARSER_VERSION and not refresh and time.time() - cached["saved_at"] < ttl:
             record = dict(cached["record"])
-            if preferred_name:
+            if preferred_name and any(source != "Gfriends" for source in record.get("sources", [])):
                 record["name"] = preferred_name
             return record
 
@@ -990,9 +994,9 @@ def resolve_with_deadline(name, refresh, deadline):
     record["source_priority"] = list(SOURCE_PRIORITY)
     record["rejected_urls"] = rejected_urls
     record["source_search_status"] = search_outcome.get("MetaTube search", "not started")
-    if identity:
+    if identity and any(source != "Gfriends" for source in record["sources"]):
         record["actor_db_identity"] = identity["actor_id"]
-    if preferred_name:
+    if preferred_name and any(source != "Gfriends" for source in record["sources"]):
         record["name"] = preferred_name
         if preferred_name.casefold() not in {value.casefold() for value in record["aliases"]}:
             record["aliases"].append(preferred_name)

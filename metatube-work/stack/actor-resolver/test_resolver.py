@@ -131,6 +131,51 @@ class ResolverTests(unittest.TestCase):
         self.assertNotIn('Gfriends', record['external_ids'])
         self.assertEqual(record['urls']['Gfriends'], 'https://example.test/portrait')
 
+    def test_gfriends_only_ignores_actor_db_identity_and_manual_override(self):
+        portrait = {'provider': 'Gfriends', 'id': 'portrait', 'name': 'みなと羽琉',
+                    'homepage': 'https://example.test/portrait',
+                    'aliases': ['Bad Western Name'], 'images': ['portrait.jpg'],
+                    'birthday': '2000-01-01', 'summary': 'Unverified biography'}
+        identity = {'actor_id': 'actor-123', 'western_name': 'Existing Western Name'}
+        override = {'canonical': 'Override Western Name', 'birth_year': '1996',
+                    'aliases': ['Other Western Name'], 'birthday': '1996-06-09',
+                    'external_ids': {'AV-LEAGUE': 'unverified-id'}}
+        with patch.object(resolver, 'actor_override', return_value=override) as looked_up:
+            record = resolver.merge('みなと羽琉', [portrait], identity)
+        looked_up.assert_not_called()
+        self.assertEqual(record['name'], 'みなと羽琉')
+        self.assertEqual(record['aliases'], [])
+        self.assertEqual(record['images'], ['portrait.jpg'])
+        self.assertEqual(record['birthday'], '')
+        self.assertEqual(record['summary'], '')
+        self.assertEqual(record['external_ids'], {})
+        self.assertEqual(record['id'], 'Gfriends:portrait')
+
+    def test_gfriends_only_resolve_does_not_restore_preferred_name_or_actor_db_id(self):
+        portrait = {'provider': 'Gfriends', 'id': 'portrait', 'name': 'みなと羽琉',
+                    'images': ['portrait.jpg']}
+        identity = {'actor_id': 'actor-123', 'western_name': 'Existing Western Name'}
+        cache_path = os.path.join(self.temporary.name, 'gfriends-cache.json')
+        with patch.object(resolver, 'CACHE_FILE', cache_path), \
+             patch.object(resolver, 'mapped_canonical_name', return_value='Preferred Name (JAP、1996、みなと羽琉)'), \
+             patch.object(resolver, 'actor_db_identity', return_value=identity), \
+             patch.object(resolver, 'request_json', return_value={'data': [portrait]}), \
+             patch.object(resolver, 'actor_detail', return_value=portrait), \
+             patch.object(resolver, 'xslist_search_detail', return_value=None), \
+             patch.object(resolver, 'javlibrary_detail', return_value=None), \
+             patch.object(resolver, 'minnano_search_detail', return_value=None), \
+             patch.object(resolver, 'javdatabase_detail', return_value=None), \
+             patch.object(resolver, 'babepedia_detail', return_value=None), \
+             patch.object(resolver, 'javlink_detail', return_value=None), \
+             patch.object(resolver, 'javmodel_detail', return_value=None), \
+             patch.object(resolver, 'javdb_detail', return_value=None):
+            for refresh in (True, False):
+                record = resolver.resolve('みなと羽琉', refresh=refresh)
+                self.assertEqual(record['name'], 'みなと羽琉')
+                self.assertEqual(record['images'], ['portrait.jpg'])
+                self.assertEqual(record['external_ids'], {})
+                self.assertNotIn('actor_db_identity', record)
+
     def test_gfriends_is_searched_last_only_when_no_other_profile_matches(self):
         self.assertEqual(resolver.SOURCE_ORDER[:3],
                          ('AV-LEAGUE', 'Minnano-AV', 'XsList'))
@@ -231,7 +276,7 @@ class ResolverTests(unittest.TestCase):
                 record = resolver.resolve('水城奈緒')
             self.assertTrue(search.called)
             self.assertEqual(record['id'], 'Minnano-AV:556877')
-            self.assertEqual(resolver.load_cache()['水城奈緒']['name_parser_version'], 6)
+            self.assertEqual(resolver.load_cache()['水城奈緒']['name_parser_version'], resolver.NAME_PARSER_VERSION)
 
     def test_source_outcomes_expose_timeout_instead_of_silently_dropping_it(self):
         release = threading.Event()

@@ -4,7 +4,7 @@ import os
 import tempfile
 import time
 import threading
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
 import resolver
@@ -165,6 +165,65 @@ class ResolverTests(unittest.TestCase):
             fallback = resolver.resolve('みなと羽琉', refresh=True)
         self.assertEqual(calls, ['Gfriends'])
         self.assertEqual(fallback['source_status']['Gfriends'], 'found')
+
+    def test_all_rejected_search_retains_source_evidence_without_a_fake_actor(self):
+        candidate = {'provider': 'AV-LEAGUE', 'id': '456', 'name': 'みなと羽琉'}
+        rejected_url = 'https://www.av-league.com/actress/456.html'
+        with patch.object(resolver, 'CACHE_FILE', os.path.join(self.temporary.name, 'rejected.json')), \
+             patch.object(resolver, 'request_json', return_value={'data': [candidate]}), \
+             patch.object(resolver, 'actor_detail', side_effect=resolver.SourceIdentityMismatch(rejected_url)), \
+             patch.object(resolver, 'actor_db_identity', return_value=None), \
+             patch.object(resolver, 'xslist_search_detail', return_value=None), \
+             patch.object(resolver, 'javlibrary_detail', return_value=None), \
+             patch.object(resolver, 'minnano_search_detail', return_value=None), \
+             patch.object(resolver, 'javdatabase_detail', return_value=None), \
+             patch.object(resolver, 'babepedia_detail', return_value=None), \
+             patch.object(resolver, 'javlink_detail', return_value=None), \
+             patch.object(resolver, 'javmodel_detail', return_value=None), \
+             patch.object(resolver, 'javdb_detail', return_value=None):
+            with self.assertRaises(resolver.NoActorMatch) as caught:
+                resolver.resolve('みなと羽琉', refresh=True)
+        self.assertEqual(caught.exception.source_status['AV-LEAGUE'], 'identity mismatch')
+        self.assertEqual(caught.exception.rejected_urls['AV-LEAGUE'], rejected_url)
+
+    def test_not_found_http_response_exposes_rejections_to_workflow(self):
+        handler = resolver.Handler.__new__(resolver.Handler)
+        handler.path = '/resolve?name=%E3%81%BF%E3%81%AA%E3%81%A8%E7%BE%BD%E7%90%89'
+        handler.client_address = ('127.0.0.1', 0)
+        handler.send_json = Mock()
+        rejected = resolver.NoActorMatch('みなと羽琉', {'AV-LEAGUE': 'identity mismatch'},
+                                          {'AV-LEAGUE': 'https://www.av-league.com/actress/456.html'})
+        with patch.object(resolver, 'resolve', side_effect=rejected), \
+             patch.object(resolver, 'append_resolve_event'):
+            handler.do_GET()
+        status, body = handler.send_json.call_args.args
+        self.assertEqual(status, 404)
+        self.assertEqual(body['source_status']['AV-LEAGUE'], 'identity mismatch')
+        self.assertNotIn('data', body)
+
+    def test_old_priority_cache_is_recollected_before_primary_id_selection(self):
+        cache_file = os.path.join(self.temporary.name, 'old-priority.json')
+        candidates = [{'provider': 'XsList', 'id': '162', 'name': '水城奈緒'},
+                      {'provider': 'Minnano-AV', 'id': '556877', 'name': '水城奈緒'}]
+        details = [dict(item, aliases=['Nao Mizuki'], birthday='1984-09-17')
+                   for item in candidates]
+        with patch.object(resolver, 'CACHE_FILE', cache_file):
+            resolver.save_cache({'水城奈緒': {'saved_at': time.time(), 'name_parser_version': 5,
+                                           'record': {'id': 'XsList:162', 'name': 'Nao Mizuki'}}})
+            with patch.object(resolver, 'request_json', return_value={'data': candidates}) as search, \
+                 patch.object(resolver, 'actor_detail', side_effect=lambda item: next(
+                     detail for detail in details if detail['provider'] == item['provider'])), \
+                 patch.object(resolver, 'actor_db_identity', return_value=None), \
+                 patch.object(resolver, 'javlibrary_detail', return_value=None), \
+                 patch.object(resolver, 'javdatabase_detail', return_value=None), \
+                 patch.object(resolver, 'babepedia_detail', return_value=None), \
+                 patch.object(resolver, 'javlink_detail', return_value=None), \
+                 patch.object(resolver, 'javmodel_detail', return_value=None), \
+                 patch.object(resolver, 'javdb_detail', return_value=None):
+                record = resolver.resolve('水城奈緒')
+            self.assertTrue(search.called)
+            self.assertEqual(record['id'], 'Minnano-AV:556877')
+            self.assertEqual(resolver.load_cache()['水城奈緒']['name_parser_version'], 6)
 
     def test_source_outcomes_expose_timeout_instead_of_silently_dropping_it(self):
         release = threading.Event()

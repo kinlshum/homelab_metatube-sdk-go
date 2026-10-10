@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 5
+NAME_PARSER_VERSION = 6  # Recollect source order and rejected-profile evidence.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -49,6 +49,13 @@ class SourceIdentityMismatch(Exception):
     def __init__(self, url):
         super().__init__("source identity differs")
         self.url = url
+
+
+class NoActorMatch(LookupError):
+    def __init__(self, name, source_status, rejected_urls):
+        super().__init__(f"no actor match for {name}")
+        self.source_status = source_status
+        self.rejected_urls = rejected_urls
 
 
 def append_resolve_event(event):
@@ -971,7 +978,7 @@ def resolve_with_deadline(name, refresh, deadline):
                                   deadline, ["Gfriends"] * len(placeholder_results),
                                   outcomes, rejected_urls)
     if not details:
-        raise LookupError(f"no actor match for {name}")
+        raise NoActorMatch(name, outcomes, rejected_urls)
     record = merge(search_name.strip(), details, identity)
     record["source_status"] = outcomes
     record["source_priority"] = list(SOURCE_PRIORITY)
@@ -1027,6 +1034,13 @@ class Handler(BaseHTTPRequestHandler):
                  "name": name[:100], "client_ip": self.client_address[0], "status": "started"}
         try:
             record = resolve(name, query.get("refresh", [""])[0] == "true", event["request_id"])
+        except NoActorMatch as error:
+            event.update(status="not_found", duration_ms=round((time.monotonic() - started) * 1000),
+                         error_type=type(error).__name__, source_status=error.source_status)
+            append_resolve_event(event)
+            self.send_json(404, {"error": "no actor match", "source_status": error.source_status,
+                                 "rejected_urls": error.rejected_urls})
+            return
         except Exception as error:
             event.update(status="failed", duration_ms=round((time.monotonic() - started) * 1000),
                          error_type=type(error).__name__)

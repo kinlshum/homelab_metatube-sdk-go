@@ -852,8 +852,8 @@ def merge(name, details, identity=None):
         if len(values) > 1:
             conflicts[field] = values
 
-    # Keep existing resolver IDs stable while moving the image-only fallback last.
-    stable_provider = next((provider for provider in ("AV-LEAGUE", "XsList", "Minnano-AV", "JavLibrary", "JAV.LINK", "JAVDatabase", "Babepedia", "Gfriends")
+    # Choose the same verified source priority used for names and facts.
+    stable_provider = next((provider for provider in SOURCE_PRIORITY
                             if provider in external_ids), details[0]["provider"])
     return {
         "id": f"{stable_provider}:{external_ids[stable_provider]}",

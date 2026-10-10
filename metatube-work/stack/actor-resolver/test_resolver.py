@@ -391,7 +391,7 @@ class ResolverTests(unittest.TestCase):
              "hobby": "華道、茶道", "skill": "", "summary": "出身地：東京都。", "debut_date": ""},
         ])
         self.assertEqual("Nao Mizuki (JAP、1984、水城奈緒)", record["name"])
-        self.assertEqual("XsList:162", record["id"])
+        self.assertEqual("Minnano-AV:556877", record["id"])
         self.assertEqual("H", record["cup_size"])
         self.assertEqual("華道、茶道", record["hobby"])
         self.assertEqual("東京都", record["place_of_birth"])

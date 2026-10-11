@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 11  # Re-evaluate cached actors after profile-level birth-year checks.
+NAME_PARSER_VERSION = 12  # Re-evaluate cached actors after full-date identity checks.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -725,29 +725,70 @@ def reconcile_profile_birth_years(name, details, outcomes, rejected_urls):
         year = iso_date(detail.get("birthday"))[:4]
         if year:
             by_year.setdefault(year, []).append(detail)
-    if len(by_year) < 2:
-        return details, profiles
-    supported = [year for year, rows in by_year.items()
-                 if len({row.get("provider") for row in rows}) >= 2
-                 and any(identity_key(row.get("name", "")) == identity_key(name)
-                         for row in rows)]
-    if len(supported) != 1 or any(len({row.get("provider") for row in rows}) > 1
-                                  for year, rows in by_year.items() if year != supported[0]):
-        for profile in profiles:
-            profile["status"] = "identity conflict: incompatible birth years"
-        for detail in details:
-            if detail.get("homepage"):
-                rejected_urls[detail["provider"]] = detail["homepage"]
-            outcomes[detail["provider"]] = "identity conflict: incompatible birth years"
-        raise NoActorMatch(name, outcomes, rejected_urls, profiles)
-    chosen_year = supported[0]
+    if len(by_year) >= 2:
+        supported = [year for year, rows in by_year.items()
+                     if len({row.get("provider") for row in rows}) >= 2
+                     and any(identity_key(row.get("name", "")) == identity_key(name)
+                             for row in rows)]
+        if len(supported) != 1 or any(len({row.get("provider") for row in rows}) > 1
+                                      for year, rows in by_year.items() if year != supported[0]):
+            for profile in profiles:
+                profile["status"] = "identity conflict: incompatible birth years"
+            for detail in details:
+                if detail.get("homepage"):
+                    rejected_urls[detail["provider"]] = detail["homepage"]
+                outcomes[detail["provider"]] = "identity conflict: incompatible birth years"
+            raise NoActorMatch(name, outcomes, rejected_urls, profiles)
+        chosen_year = supported[0]
+    else:
+        chosen_year = next(iter(by_year), "")
     kept = []
     for detail, profile in zip(details, profiles):
         year = profile["birthday"][:4]
-        if year and year != chosen_year:
+        if year and chosen_year and year != chosen_year:
             profile["status"] = f"rejected: birth year {year} conflicts with corroborated {chosen_year}"
         else:
             kept.append(detail)
+
+    # Source sites can disagree by a day, but a months-apart date in the same
+    # year may represent another person. Keep the small day conflict visible;
+    # exclude a distant outlier only if two independent providers corroborate
+    # an exact-name profile and no exact-name profile supports the distant date.
+    dated = []
+    for detail, profile in zip(details, profiles):
+        if detail not in kept or not profile["birthday"]:
+            continue
+        try:
+            dated.append((detail, profile,
+                          datetime.fromisoformat(profile["birthday"]).date()))
+        except ValueError:
+            profile["status"] = "rejected: invalid birth date"
+            kept.remove(detail)
+    if dated and (max(row[2] for row in dated) - min(row[2] for row in dated)).days > 2:
+        candidates = []
+        for candidate in {row[2] for row in dated}:
+            nearby = [row for row in dated if abs((row[2] - candidate).days) <= 2]
+            distant = [row for row in dated if abs((row[2] - candidate).days) > 2]
+            if (len({row[0].get("provider") for row in nearby}) >= 2
+                    and any(row[2] == candidate and identity_key(row[0].get("name", ""))
+                            == identity_key(name) for row in nearby)
+                    and not any(identity_key(row[0].get("name", "")) == identity_key(name)
+                                for row in distant)):
+                candidates.append(candidate)
+        if len(candidates) != 1:
+            for profile in profiles:
+                profile["status"] = "identity conflict: incompatible birth dates"
+            for detail in details:
+                if detail.get("homepage"):
+                    rejected_urls[detail["provider"]] = detail["homepage"]
+                outcomes[detail["provider"]] = "identity conflict: incompatible birth dates"
+            raise NoActorMatch(name, outcomes, rejected_urls, profiles)
+        chosen_date = candidates[0]
+        for detail, profile, date in dated:
+            if abs((date - chosen_date).days) > 2:
+                profile["status"] = (f"rejected: birth date {profile['birthday']} conflicts "
+                                     f"with corroborated {chosen_date.isoformat()}")
+                kept.remove(detail)
     return kept, profiles
 
 

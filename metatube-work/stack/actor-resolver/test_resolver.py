@@ -135,6 +135,34 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual('1994-08-26', formed['birthday'])
         self.assertEqual('AV-LEAGUE', formed['provenance']['birthday'])
 
+    def test_suzuki_excludes_distant_same_year_profile(self):
+        details = [
+            dict(provider='Minnano-AV', id='107218', name='鈴木あいか',
+                 birthday='1991-01-30'),
+            dict(provider='Babepedia', id='Airu_Oshima', name='Airu Oshima',
+                 birthday='1991-01-30'),
+            dict(provider='JAV.LINK', id='airu-oshima', name='大島あいる',
+                 birthday='1991-11-06', aliases=['鈴木あいか']),
+        ]
+        kept, profiles = resolver.reconcile_profile_birth_years('鈴木あいか', details, {}, {})
+        self.assertEqual([row['id'] for row in kept], ['107218', 'Airu_Oshima'])
+        self.assertIn('rejected: birth date', profiles[2]['status'])
+
+    def test_natsume_exact_name_date_conflict_requires_review(self):
+        details = [
+            dict(provider='AV-LEAGUE', id='33649', name='夏目藍果',
+                 birthday='2000-02-02'),
+            dict(provider='Minnano-AV', id='424687', name='夏目藍果',
+                 birthday='2000-11-30'),
+            dict(provider='JAVDatabase', id='aika-natsume', name='Aika Natsume',
+                 birthday='2000-11-30'),
+        ]
+        with self.assertRaises(resolver.NoActorMatch) as caught:
+            resolver.reconcile_profile_birth_years('夏目藍果', details, {}, {})
+        self.assertEqual(3, len(caught.exception.source_profiles))
+        self.assertTrue(all('incompatible birth dates' in row['status']
+                            for row in caught.exception.source_profiles))
+
 
     def test_aika_resolve_exposes_identity_conflict_in_tool_status(self):
         primary = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],

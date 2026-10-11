@@ -190,6 +190,15 @@ multi-year conflict, or excludes a singleton outlier only when an exact-name
 profile and another independent provider corroborate the same year. It
 returns every profile row and its acceptance/rejection reason for Admin2.
 
+The candidate also checks material **same-year** date disagreements before
+formation. For Suzuki, a distant November JAV.LINK date is excluded only when
+the exact Japanese-name profile and another provider corroborate the January
+date; a one-day XsList difference stays visible. For Natsume, AV-LEAGUE and
+Minnano both name the exact Japanese identity yet disagree by months, so the
+resolver returns an identity-review hold rather than selecting a birthday by
+priority. These are regression-tested rules, not claims about a deployed
+resolver or a completed Emby cleanup.
+
 Live Emby search returned two linked Persons with the same clean name:
 `12094` has 20 linked items and saved birthday 1996-07-14; `1129000` has
 nine linked items. Actor DB `a496d41e-2c06-4273-bb3f-c85b093cbdd6` has

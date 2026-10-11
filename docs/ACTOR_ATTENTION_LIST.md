@@ -265,3 +265,15 @@ no exact Person link or publication receipt. The clean People folder with
 Do not merge the Persons, reassign movies, overwrite artwork, or publish the
 1987 resolver result. Inspect both exact Persons and movie IDs through the
 tools once the exact-name finder and profile-level source table are deployed.
+
+JAV-Master 2.1.97's read-only exact-Person comparison now shows both
+`12094` and `1129000` saved as `Maika Hoshizaki (JAP、星咲マイカ)` with the
+same 1996-07-14 Emby date and the same XsList profile `36532`; provider
+keys differ mainly in capitalization. It displayed all 20 versus nine
+movie links and found no identical Emby item IDs. The nine-link Person
+includes `JUY-797` item `1423172`, but also `COSQ-022` item `1444380`
+whose title names other performers. Common IDs/name/date make these
+**candidate** duplicates, not an automatic merge: verify every movie's
+provider cast and the custom `folder.jpg` ownership before any cast move
+or Person deletion. The comparison is complete for this pair because both
+movie totals are below 100.

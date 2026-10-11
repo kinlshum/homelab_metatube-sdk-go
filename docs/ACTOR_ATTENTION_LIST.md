@@ -75,9 +75,11 @@ reported 1988-08-08; XsList reported 1988-08-07. The live resolver formed
 `Noa Aikawa (JAP、1988、愛川のあ)` but still printed `Blood Type: n/a`. Exact Emby
 Person `1655277` has one linked item, while the read-only Admin2 Actor DB
 trace found no exact record or publication receipt. The JAV-Master Actor
-Editor standalone Person inspector candidate can show this movie without an
-Actor DB record; review it before creating/linking a canonical identity or
-moving an image.
+Editor standalone Person inspector is live in 2.1.96. It identifies the sole
+linked item as compilation `GAS-223` (Emby item `1606580`,
+`MetaTube=JavBus:GAS-223`), with Noa Person `1655277` in a 27-Person cast.
+That broad compilation cast is insufficient by itself to create/link a new
+canonical identity or move an image; verify the provider cast/profile first.
 
 ## Aikawa Mika source and saved-Person conflict
 

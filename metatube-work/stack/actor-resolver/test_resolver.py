@@ -591,6 +591,18 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual("三浦あいか", resolver.japanese_profile_name({
             "name": malformed, "aliases": ["三浦あいか"]}))
 
+    def test_aikawa_mika_override_fixes_order_without_inventing_a_birthday(self):
+        resolver.OVERRIDES_FILE = os.path.join(os.path.dirname(__file__), "overrides.json")
+        record = resolver.merge("藍川美夏", [{
+            "provider": "AV-LEAGUE", "id": "45", "name": "藍川美夏",
+            "aliases": ["Aikawa Mika", "なつみさん33歳 夫に内緒で他人棒SEX"],
+            "birthday": "1988-02-10", "nationality": "大阪府",
+        }])
+        self.assertEqual("Mika Aikawa (JAP、1988、藍川美夏)", record["name"])
+        self.assertEqual("1988-02-10", record["birthday"])
+        self.assertEqual("AV-LEAGUE", record["provenance"]["birthday"])
+        self.assertNotIn("なつみさん33歳 夫に内緒で他人棒SEX", record["aliases"])
+
     def test_named_aika_does_not_claim_the_reserved_single_name(self):
         self.assertEqual(["なつめあいか"], resolver.clean_aliases(
             ["AIKA", "Aika", "あいか", "なつめあいか"],

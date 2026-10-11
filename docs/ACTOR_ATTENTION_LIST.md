@@ -88,8 +88,11 @@ Admin2 dictionary for `藍川美夏` returned
 [XsList](https://xslist.org/en/model/439.html). The displayed birthday values
 are 1988-02-10 (AV-LEAGUE), 1988-06-29 (XsList), and 1988-06-30
 (Minnano/JAVDatabase). The live resolver forms
-`Aikawa Mika (JAP、1988、藍川美夏)`, but XsList presents the Western name as
-`Mika Aikawa`; the correct order requires exact profile review. The live
+`Aikawa Mika (JAP、1988、藍川美夏)`, while XsList presents the Western name as
+`Mika Aikawa`. The [ATTACKERS official actress index](https://attackers.net/actress/a)
+lists `藍川美夏` as `AIKAWA MIKA` in Japanese surname-first order. The
+source-controlled resolver candidate therefore forms `Mika Aikawa` without
+overriding the disputed birthday. The live
 overview also accepts `なつみさん33歳 夫に内緒で他人棒SEX` as an alias, prints
 `Blood Type: n/a`, and labels Osaka prefecture as nationality. Exact Emby
 Person `36375` has 33 linked items and saved birthday 1988-02-10 with the

@@ -619,6 +619,8 @@ def clean_aliases(values, canonical_name):
         value = re.sub(r"^Also known as:\s*", "", value or "", flags=re.IGNORECASE).strip()
         if not value:
             continue
+        if not valid_actor_label(value):
+            continue
         # Age annotations are source facts, not durable identity aliases.
         if re.search(r'/\s*\d{1,3}\s*[岁歳]\s*$', value):
             continue
@@ -634,11 +636,23 @@ def clean_aliases(values, canonical_name):
     return cleaned
 
 
+def valid_actor_label(value):
+    """Reject scraped captions with unmatched brackets before using them as names."""
+    closing = {')': '(', '）': '（', ']': '[', '】': '【'}
+    stack = []
+    for character in value:
+        if character in closing.values():
+            stack.append(character)
+        elif character in closing and (not stack or stack.pop() != closing[character]):
+            return False
+    return not stack
+
+
 def japanese_profile_name(detail):
     """Return an actual Japanese identity label, never a source UI caption."""
     for value in [detail.get("name", ""), *detail.get("aliases", [])]:
         value = (value or "").strip()
-        if value and japanese(value) and not re.search(r"[A-Za-z:]", value):
+        if value and japanese(value) and valid_actor_label(value) and not re.search(r"[A-Za-z:]", value):
             return value
     return ""
 

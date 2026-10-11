@@ -560,6 +560,13 @@ class ResolverTests(unittest.TestCase):
             resolver.clean_aliases(aliases, "Hikari Misumi (JAP、1996、水澄ひかり)"),
         )
 
+    def test_rejects_malformed_profile_caption_as_actor_alias(self):
+        malformed = "熟女) （あいか"
+        self.assertEqual(["長谷川優"], resolver.clean_aliases(
+            [malformed, "長谷川優"], "Aika Miura (JAP、1975、三浦あいか)"))
+        self.assertEqual("三浦あいか", resolver.japanese_profile_name({
+            "name": malformed, "aliases": ["三浦あいか"]}))
+
     def test_merges_nao_mizuki_identity(self):
         record = resolver.merge("水城奈緒", [
             {"id": "162", "name": "水城奈緒", "provider": "XsList",

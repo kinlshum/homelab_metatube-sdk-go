@@ -91,6 +91,36 @@ class ResolverTests(unittest.TestCase):
         self.assertIn('identity conflict', caught.exception.source_status['Babepedia'])
         self.assertEqual(rejected['Babepedia'], details[1]['homepage'])
 
+    def test_bare_japanese_aika_rejects_yumeno_profile_even_with_saved_identity(self):
+        yumeno = dict(provider='AV-LEAGUE', id='9657', name='夢乃あいか',
+                      aliases=['あいか'], birthday='1994-08-26',
+                      homepage='https://www.av-league.com/actress/9657.html')
+        def collect(_tasks, _deadline, labels, outcomes, _rejected=None):
+            if labels == ['MetaTube search']:
+                outcomes['MetaTube search'] = 'found'
+                return [{'data': [yumeno]}]
+            if 'AV-LEAGUE' in labels:
+                outcomes['AV-LEAGUE'] = 'found'
+                return [yumeno]
+            return []
+        with patch.object(resolver, 'CACHE_FILE', os.path.join(self.temporary.name, 'aika-cache.json')), \
+             patch.object(resolver, 'actor_db_identity', return_value={
+                 'western_name': 'AIKA', 'actor_id': 'saved-aika',
+                 'japanese_name': 'あいか', 'birth_year': '1990'}), \
+             patch.object(resolver, 'collect_sources', side_effect=collect):
+            with self.assertRaises(resolver.NoActorMatch) as caught:
+                resolver.resolve('あいか', refresh=True)
+        self.assertIn('bare AIKA requires exact Japanese あいか',
+                      caught.exception.source_status['AV-LEAGUE'])
+        self.assertEqual(yumeno['homepage'], caught.exception.rejected_urls['AV-LEAGUE'])
+
+    def test_bare_aika_accepts_only_exact_1990_profile(self):
+        actor = dict(provider='AV-LEAGUE', id='18', name='AIKA',
+                     aliases=['あいか'], birthday='1990-08-25')
+        resolver.reject_ambiguous_stage_name('あいか', [actor], {}, {})
+        with self.assertRaises(resolver.NoActorMatch):
+            resolver.reject_ambiguous_stage_name('あいか', [dict(actor, birthday='1994-08-26')], {}, {})
+
     def test_maika_rejects_one_stale_former_name_profile_before_merge(self):
         details = [
             dict(provider='Minnano-AV', id='old', name='三花れな',

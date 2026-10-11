@@ -686,15 +686,26 @@ def japanese_profile_name(detail):
 
 def reject_ambiguous_stage_name(name, details, outcomes, rejected_urls):
     """A shared one-word stage name cannot join unrelated provider profiles."""
-    if japanese(name) or len(name.split()) != 1 or not details:
+    shared_aika = name.casefold() in {'aika', 'あいか'}
+    if (japanese(name) and not shared_aika) or (len(name.split()) != 1 and not shared_aika) or not details:
         return
     subjects = {identity_key(subject) for detail in details
                 if (subject := japanese_profile_name(detail))}
     years = {birthday[:4] for detail in details
              if (birthday := iso_date(detail.get("birthday")))}
-    if len(subjects) == 1 and (not years or max(years) == min(years)):
+    if shared_aika:
+        # A broad search for あいか can select 夢乃あいか (AV-LEAGUE 9657)
+        # ahead of the standalone 1990 AIKA. Alias text alone is not identity.
+        verified = subjects == {identity_key('あいか')} and years == {'1990'}
+    else:
+        verified = len(subjects) == 1 and (not years or max(years) == min(years))
+    if verified:
         return
-    reason = ("identity conflict: shared single-name search matched different profiles"
+    reason = ("identity unverified: bare AIKA source has no Japanese profile name"
+              if shared_aika and not subjects else
+              "identity conflict: bare AIKA requires exact Japanese あいか and sourced 1990 birth year"
+              if shared_aika else
+              "identity conflict: shared single-name search matched different profiles"
               if len(subjects) > 1 or len(years) > 1 else
               "identity unverified: no Japanese profile name for single-name search")
     for detail in details:
@@ -1182,7 +1193,7 @@ def resolve_with_deadline(name, refresh, deadline):
                                   outcomes, rejected_urls)
     if not details:
         raise NoActorMatch(name, outcomes, rejected_urls)
-    if not identity:
+    if not identity or search_name.strip().casefold() in {'aika', 'あいか'}:
         reject_ambiguous_stage_name(search_name.strip(), details, outcomes, rejected_urls)
     details, source_profiles = reconcile_profile_birth_years(
         search_name.strip(), details, outcomes, rejected_urls)

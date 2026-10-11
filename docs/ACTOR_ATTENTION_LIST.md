@@ -27,6 +27,19 @@ field and must remain labelled unknown.
 | `Aika Yumeno (JAP、1994、夢乃あいか)` | Admin2 dictionary found seven source URLs. [AV-LEAGUE :live](https://www.av-league.com/actress/9657.html), [Minnano-AV :live](https://www.minnano-av.com/actress545220.html), [JAVDatabase :live](https://www.javdatabase.com/idols/aika-yumeno/), and [Babepedia :live](https://www.babepedia.com/babe/Aika_Yumeno) reported 1994-08-26, while [XsList :live](https://xslist.org/zh/model/9.html) reported 1994-08-25 and [JAV.LINK :live](https://jav.link/jav/yumeno-aika/) reported 1993-09-13. The [manufacturer profile :live](https://tameikegoro.jp/actress/detail/245419) also says 1994-08-26. Live resolver still printed 1994-08-25 because its mounted override was stale, and mislabeled `東京都` as nationality. Candidate parser now prefers verified AV-LEAGUE/Minnano birthdays over a conflicting override and treats prefecture as birthplace; source-controlled override is corrected. Actor DB revision 1 is already named correctly but has no publication receipt. | Keep Aika Yumeno separate from bare AIKA and preserve both existing Yumeno People folders. Verify the corrected resolver preview and live mounted override behavior after release before any Emby Identify, INI publication, folder copy, or cleanup. |
 | `ANRI (JAP、1991、坂口杏里)` | Admin2 dictionary replay returned no formed source result. Resolver request `b8f2949f-a0ef-45ad-9a92-4adee1a51e5e` ended `not_found` after 75 seconds. Provider trace showed AV-LEAGUE and Minnano search results but zero accepted actor records; XsList bridge returned 404. Actor DB already has the canonical record, revision 1, with no publication receipt. A [Sponichi profile :live](https://www.sponichi.co.jp/person/UDAR10235372/) confirms 1991-03-03 and the `Sakaguchi Anri` romanization, but is not a resolver provider. | Keep for source-profile discovery and exact-match rule review. Do not infer a profile from a generic `ANRI` search. |
 
+The 2026-10-11 Admin2 **bare `あいか`** replay is another concrete search-rank
+failure. Resolver request `4c940b1f-cd77-4f61-8c84-7d68f134563e` from
+Admin2 `192.168.10.167` ended `not_found` after 75,007 ms with no formed name
+or accepted source row. Its exact linked MetaTube 1 run
+`5f8edf54-66ea-4063-b971-2f3d94db0218` had 17 broad search results and
+selected AV-LEAGUE ID `9657`, the separate **Aika Yumeno** profile, even
+though the saved Actor DB row is `AIKA (JAP、1990、あいか)` with no Person link or
+publication receipt. This search is an Admin2 replay, not native Emby Apply.
+The resolver candidate now rejects a bare `AIKA`/`あいか` profile unless its
+Japanese subject is exactly `あいか` and its sourced birth year is 1990,
+including when a saved Actor DB identity exists. Do not fill the AIKA source
+table with Yumeno's URL or propagate its metadata to Person `1195996`.
+
 Artwork inventory for the Aika family found 50 folders. The canonical AIKA
 folder has `folder.png`; a separate Japanese `あいか` folder has `folder.jpg`.
 The Aika Miura alternate folder holds `fanart.png`, `fanart1.png`, and

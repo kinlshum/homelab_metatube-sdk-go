@@ -115,6 +115,7 @@ class ResolverTests(unittest.TestCase):
     def test_babepedia_bra_conversion_is_not_cup_size(self):
         self.assertEqual(resolver.normalize_cup_size('32B show conversions - UK: 32B, EU: 70B, AU: 10B, JP: 70B'), 'B')
         self.assertEqual(resolver.normalize_cup_size('70G'), 'G')
+        self.assertEqual(resolver.normalize_cup_size('30DD show conversions - UK: 30DD, EU: 65E, JP: 65E'), 'E')
         self.assertEqual(resolver.normalize_cup_size('H Cup'), 'H')
         self.assertEqual(resolver.normalize_cup_size('n/a'), '')
 

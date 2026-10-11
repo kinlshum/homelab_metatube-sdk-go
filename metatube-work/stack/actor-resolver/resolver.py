@@ -404,8 +404,11 @@ def javlibrary_detail(name):
 
 
 def normalize_cup_size(raw):
-    """Keep the cup letter, not Babepedia's bra-size conversion sentence."""
+    """Keep the Japanese cup letter, not Babepedia's conversion sentence."""
     value = str(raw or "").strip().upper()
+    japanese_size = re.search(r"\bJP:\s*\d{2,3}\s*([A-Z]{1,3})\b", value)
+    if japanese_size:
+        return japanese_size.group(1)
     match = re.match(r"^(?:\d{2,3}\s*)?([A-Z]{1,3})(?:\s|$|\b)", value)
     if not match or match.group(1) in {"N", "NA", "NAN", "UNK"}:
         return ""

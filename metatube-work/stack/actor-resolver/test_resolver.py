@@ -91,6 +91,15 @@ class ResolverTests(unittest.TestCase):
         self.assertIn('identity unverified', caught.exception.source_status['XsList'])
         self.assertNotIn('Also known as:', resolver.merge('AIKA', [detail])['name'])
 
+    def test_emby_provider_suffix_is_not_part_of_actor_name(self):
+        dirty = 'Aika Yamagishi (JAP、山岸逢花)-imdb-https xslist.org en model 358.html'
+        self.assertEqual(resolver.lookup_name(dirty), '山岸逢花')
+        self.assertEqual(resolver.mapped_canonical_name(dirty), '')
+        canonical = 'Aika Yamagishi (JAP、1992、山岸逢花)-imdb-XsList 358'
+        self.assertEqual(resolver.lookup_name(canonical), '山岸逢花')
+        self.assertEqual(resolver.mapped_canonical_name(canonical),
+                         'Aika Yamagishi (JAP、1992、山岸逢花)')
+
     def test_one_verified_single_name_profile_can_form_canonical_name(self):
         detail = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
                       birthday='1990-08-25')

@@ -668,7 +668,10 @@ def reject_ambiguous_stage_name(name, details, outcomes, rejected_urls):
 
 def lookup_name(value):
     value = re.sub(r"^\[JAV_CUSTOM_PROVIDER\]\s*", "", value.strip())
-    canonical = re.search(r"\(JAP、(?:\d{4}|\?)、([^()]+)\)\s*$", value)
+    # Legacy Emby Person names sometimes have an IMDb/provider URL appended to
+    # the display name. It is an external ID, never part of the actor identity.
+    value = re.split(r"-imdb-", value, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+    canonical = re.search(r"\(JAP、(?:(?:\d{4}|\?)、)?([^()]+)\)\s*$", value)
     if canonical:
         return canonical.group(1).strip()
     parenthetical = re.search(r"\(([^()]*)\)\s*$", value)
@@ -679,6 +682,7 @@ def lookup_name(value):
 
 def mapped_canonical_name(value):
     value = re.sub(r"^\[JAV_CUSTOM_PROVIDER\]\s*", "", value.strip())
+    value = re.split(r"-imdb-", value, maxsplit=1, flags=re.IGNORECASE)[0].strip()
     return value if re.search(r"\([^()]*、[^()]*、[^()]+\)\s*$", value) else ""
 
 

@@ -56,3 +56,18 @@ copying photos. The People maintenance preview currently exposes the full ID
 table but does not highlight or block this cross-identity contamination. Review
 the linked movies and correct the exact Person metadata through the tools
 before any link, INI publication, refresh, or People folder move.
+
+## Aika Suzuki exact-Person check
+
+JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person
+`43776`, named `Aika Suzuki (JAP、鈴木あいか)`, OriginalTitle `鈴木あいか`, with
+162 linked library items at this readback. The saved birthday is
+`1991-01-28T05:00:00Z`, while one external profile in the table above reports
+1991-01-29 and another reports 1991-11-06. The 13 Emby provider IDs are more
+internally coherent than the Miura and Yumeno examples: MetaTube names
+`GFriends:鈴木あいか`, XsList is `4333`, SextbActress is `aika-suzuki`, and the
+saved JavScraper profile names `Aika Suzuki - 鈴木あいか`. The stored cover URL
+contains `大島あいる`, however, so it is still important to check the image and
+exact linked movies before merging aliases or moving artwork. Keep the Actor
+DB birth year unknown pending a resolved source date; a one-day Emby date
+offset is possible but not proven by the tool.

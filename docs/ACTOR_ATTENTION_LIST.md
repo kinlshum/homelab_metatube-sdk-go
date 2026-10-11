@@ -70,4 +70,8 @@ saved JavScraper profile names `Aika Suzuki - 鈴木あいか`. The stored cover
 contains `大島あいる`, however, so it is still important to check the image and
 exact linked movies before merging aliases or moving artwork. Keep the Actor
 DB birth year unknown pending a resolved source date; a one-day Emby date
-offset is possible but not proven by the tool.
+offset is possible but not proven by the tool. The read-only People inventory
+found canonical `Aika Suzuki (JAP、鈴木あいか)` owned by Person `43776` with
+`folder.png`, an unowned alternate `Aika Suzuki (鈴木あいか)` with `folder.jpg`,
+and Japanese `鈴木あいか` owned by **another** Person `502208` with `folder.jpg`.
+Do not copy either alternate into the canonical folder based on name alone.

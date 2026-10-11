@@ -862,8 +862,21 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual("AV-LEAGUE", record["provenance"]["birthday"])
         self.assertEqual(["AV-LEAGUE"], record["conflicts"]["birthday"]["1994-08-26"])
         self.assertEqual(["Curated override"], record["conflicts"]["birthday"]["1994-08-25"])
-        self.assertEqual("日本", record["nationality"])
+        self.assertEqual("", record["nationality"])
+        self.assertNotIn("nationality", record["provenance"])
         self.assertEqual("東京都", record["place_of_birth"])
+
+    def test_prefecture_does_not_hide_separately_sourced_nationality(self):
+        local = {"id": "9657", "name": "夢乃あいか", "provider": "AV-LEAGUE",
+                 "homepage": "https://www.av-league.com/actress/9657.html",
+                 "birthday": "1994-08-26", "nationality": "東京都"}
+        country = {"id": "545220", "name": "夢乃あいか", "provider": "Minnano-AV",
+                   "homepage": "https://www.minnano-av.com/actress545220.html",
+                   "birthday": "1994-08-26", "nationality": "日本"}
+        record = resolver.merge("夢乃あいか", [local, country])
+        self.assertEqual("東京都", record["place_of_birth"])
+        self.assertEqual("日本", record["nationality"])
+        self.assertEqual("Minnano-AV", record["provenance"]["nationality"])
 
     def test_akane_rei_uses_latest_javlibrary_name(self):
         with open(resolver.OVERRIDES_FILE, "w", encoding="utf-8") as handle:

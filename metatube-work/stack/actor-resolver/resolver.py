@@ -1026,14 +1026,22 @@ def merge(name, details, identity=None):
     if source:
         provenance["place_of_birth"] = source
     # Some providers put a Japanese prefecture in their `nationality` slot.
-    # Keep that as birthplace; never print Tokyo/Osaka as a nationality.
+    # Keep that as birthplace, but do not infer citizenship from birthplace.
     locality = str(fields["nationality"] or "").strip()
     if re.fullmatch(r"[\u3400-\u9fff]{2,8}[都道府県]", locality):
         if not fields["place_of_birth"]:
             fields["place_of_birth"] = locality
             provenance["place_of_birth"] = provenance.get("nationality", "Provider")
-        fields["nationality"] = "日本"
-        provenance["nationality"] = "Derived from Japanese prefecture"
+        fields["nationality"], source = first(
+            [detail for detail in usable_details if not re.fullmatch(
+                r"[\u3400-\u9fff]{2,8}[都道府県]",
+                str(detail.get("nationality") or "").strip(),
+            )], "nationality",
+        )
+        if source:
+            provenance["nationality"] = source
+        else:
+            provenance.pop("nationality", None)
     source_birthday = birthday
     if override:
         override_birthday = iso_date(override.get("birthday"))

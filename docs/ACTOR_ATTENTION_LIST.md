@@ -25,3 +25,19 @@ and `landscape.jpg` and is referenced by two distinct Emby Person IDs. The
 Aika Yamagishi `-imdb-` folder has no images. Names and shared ownership alone
 do not prove which images belong on a canonical Person; preserve every file
 until exact identity and byte-verified backups are established.
+
+## Aika Miura exact-Person check
+
+JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person
+`165649`, named `Aika Miura (JAP、三浦あいか)`, with 14 linked library items.
+The Person has no saved birthday field, but its overview says **Born August 24,
+1990** and lists `佐藤聖羅`, `優木あいか`, and `香川さくら` among its aliases. That
+overview resembles the bare `AIKA` identity, whereas the Admin2 dictionary
+forms `Aika Miura (JAP、1975、三浦あいか)`. Its saved provider IDs include MetaTube
+`Gfriends:三浦あいか`, JavdbActor `J012`, JavLibraryIdol `ke7q`, SextbActress
+`aika-miura`, and XsList `824`. Actor Editor → Actor records shows no Actor DB
+link and no recorded source URL or field evidence for the Miura record. This is
+an **identity contamination hold**, not a date field to fill automatically.
+Do not use common folder ownership to move the three fanart files: the saved
+Person itself contains mixed facts. Review the 14 linked items and provider IDs
+in the tools before editing or linking either actor.

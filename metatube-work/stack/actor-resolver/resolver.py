@@ -634,6 +634,10 @@ def clean_aliases(values, canonical_name):
         # Age annotations are source facts, not durable identity aliases.
         if re.search(r'/\s*\d{1,3}\s*[岁歳]\s*$', value):
             continue
+        # Profile pages can mix a video caption into the alias list. An age
+        # embedded in a longer label describes that caption, not a performer.
+        if re.search(r'\d{1,3}\s*[岁歳才]', value):
+            continue
         if value.casefold() in {primary_latin.casefold(), primary_japanese.casefold(), canonical_name.casefold()}:
             continue
         value_tokens = sorted(re.findall(r"[a-z0-9]+", value.casefold()))

@@ -65,6 +65,38 @@ A later Admin2 lookup for `鈴木あいか` with exact Emby Person `43776` retur
 no exact Person link, and no publication receipt. Keep the birthday/alias and
 artwork hold until exact linked movies and source identities are reviewed.
 
+## Noa Aikawa needs an Actor DB identity
+
+Admin2 dictionary for `愛川のあ` returned
+[Minnano-AV](https://www.minnano-av.com/actress436242.html),
+[JAVDatabase](https://www.javdatabase.com/idols/noa-aikawa/), and
+[XsList](https://xslist.org/zh/model/13149.html). Minnano and JAVDatabase
+reported 1988-08-08; XsList reported 1988-08-07. The live resolver formed
+`Noa Aikawa (JAP、1988、愛川のあ)` but still printed `Blood Type: n/a`. Exact Emby
+Person `1655277` has one linked item, while the read-only Admin2 Actor DB
+trace found no exact record or publication receipt. The JAV-Master Actor
+Editor standalone Person inspector candidate can show this movie without an
+Actor DB record; review it before creating/linking a canonical identity or
+moving an image.
+
+## Aikawa Mika source and saved-Person conflict
+
+Admin2 dictionary for `藍川美夏` returned
+[AV-LEAGUE](https://www.av-league.com/actress/45.html),
+[JAVDatabase](https://www.javdatabase.com/idols/mika-aikawa/),
+[Minnano-AV](https://www.minnano-av.com/actress136293.html), and
+[XsList](https://xslist.org/en/model/439.html). The displayed birthday values
+are 1988-02-10 (AV-LEAGUE), 1988-06-29 (XsList), and 1988-06-30
+(Minnano/JAVDatabase). The live resolver forms
+`Aikawa Mika (JAP、1988、藍川美夏)`, but XsList presents the Western name as
+`Mika Aikawa`; the correct order requires exact profile review. The live
+overview also accepts `なつみさん33歳 夫に内緒で他人棒SEX` as an alias, prints
+`Blood Type: n/a`, and labels Osaka prefecture as nationality. Exact Emby
+Person `36375` has 33 linked items and saved birthday 1988-02-10 with the
+polluted overview; the Actor DB trace found no exact identity or publication
+receipt. Review the source identities and linked movies before importing an
+Actor DB record, changing Emby, publishing INI, or moving People artwork.
+
 ## Aika Yumeno exact-Person check
 
 JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person

@@ -585,6 +585,9 @@ class ResolverTests(unittest.TestCase):
         malformed = "熟女) （あいか"
         self.assertEqual(["長谷川優"], resolver.clean_aliases(
             [malformed, "長谷川優"], "Aika Miura (JAP、1975、三浦あいか)"))
+        self.assertEqual([], resolver.clean_aliases(
+            ["なつみさん33歳 夫に内緒で他人棒SEX", "藍川美夏"],
+            "Aikawa Mika (JAP、1988、藍川美夏)"))
         self.assertEqual("三浦あいか", resolver.japanese_profile_name({
             "name": malformed, "aliases": ["三浦あいか"]}))
 

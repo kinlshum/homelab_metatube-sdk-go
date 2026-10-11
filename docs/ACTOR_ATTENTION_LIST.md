@@ -6,6 +6,16 @@ Actor Editor → Emby People maintenance → **Inspect matching People folders**
 for artwork ownership. The entries below are observations, not authorization
 to merge, delete, or replace Emby records.
 
+The resolver cache can make an Identify search return in a few hundred milliseconds
+without new provider URL calls. A live Aikarin request
+`e4e0442e-04ba-41e5-ba65-ea2d3a831fd3` finished in 291 ms and listed
+AV-LEAGUE, Minnano-AV and XsList but had no linked URL traces. That observation
+alone does not prove a cache hit; the pending resolver candidate now records
+`cache_status` (`hit` or `fresh`) and `cache_saved_at` in the result and request
+receipt. The pending Admin2 tool displays these fields and marks cached
+collection unverified for a fresh-source check. Older receipts have no cache
+field and must remain labelled unknown.
+
 | Actor | Tool finding | Current hold |
 | --- | --- | --- |
 | `AIKA (JAP、1990、あいか)` | Dictionary preview mixed AV-LEAGUE actress 18 with Aika Miura sources and formed `Also known as: 三浦あいか` as a name. The [official T-POWERS AIKA profile :live](https://www.t-powers.co.jp/talent/aika/) and [AV-LEAGUE actress 18 :live](https://www.av-league.com/actress/18.html) both give 1990-08-25, but disagree on height. Actor Editor exact-Person preview also found Yui Miho and a 1992 birth-year alias in saved Emby provider IDs. | Do not link the exact Person, assign movies, publish INI, copy art, or delete folders until the provider IDs and linked movies establish one identity. Resolver parser v9 candidate blocks the bad formation; it has not repaired saved data. |

@@ -165,3 +165,26 @@ or publication receipt exists. The current People folder inventory gives
 `folder.png` in the 2000-named folder to `6995` and `folder.jpg` in a
 different undated folder to `1650960`. Preserve both image sets and use the
 Actor Editor's paged linked-item inspector before any movie-by-movie change.
+
+## Maika Hoshizaki duplicate source profiles and Emby Persons
+
+The live Admin2 dictionary replay for `星咲マイカ` formed
+`Maika Hoshizaki (JAP、1987、星咲マイカ)` by taking a 1987-11-30 birthday from
+one Minnano profile. Its conflict list also contained 1996-07-15 from
+Minnano/JAV.LINK/JAVDatabase and 1996-07-14 from XsList. The displayed
+Minnano profile `https://www.minnano-av.com/actress623867.html` is explicitly
+headed `星咲マイカ` and lists 1996-07-15. The previous Admin2 table collapsed
+multiple Minnano profiles into one provider row, hiding the dissenting
+profile's ID and URL. The resolver candidate now holds an unresolved
+multi-year conflict, or excludes a singleton outlier only when an exact-name
+profile and another independent provider corroborate the same year. It
+returns every profile row and its acceptance/rejection reason for Admin2.
+
+Live Emby search returned two linked Persons with the same clean name:
+`12094` has 20 linked items and saved birthday 1996-07-14; `1129000` has
+nine linked items. Actor DB `a496d41e-2c06-4273-bb3f-c85b093cbdd6` has
+no exact Person link or publication receipt. The clean People folder with
+`folder.jpg` is owned by `12094`; an unowned Japanese folder has no image.
+Do not merge the Persons, reassign movies, overwrite artwork, or publish the
+1987 resolver result. Inspect both exact Persons and movie IDs through the
+tools once the exact-name finder and profile-level source table are deployed.

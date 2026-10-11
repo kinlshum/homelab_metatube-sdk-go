@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 10  # Re-evaluate cached actors with identity, alias, and cup-size fixes.
+NAME_PARSER_VERSION = 11  # Re-evaluate cached actors after profile-level birth-year checks.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -52,10 +52,11 @@ class SourceIdentityMismatch(Exception):
 
 
 class NoActorMatch(LookupError):
-    def __init__(self, name, source_status, rejected_urls):
+    def __init__(self, name, source_status, rejected_urls, source_profiles=None):
         super().__init__(f"no actor match for {name}")
         self.source_status = source_status
         self.rejected_urls = rejected_urls
+        self.source_profiles = source_profiles or []
 
 
 def append_resolve_event(event):
@@ -706,6 +707,50 @@ def reject_ambiguous_stage_name(name, details, outcomes, rejected_urls):
     raise NoActorMatch(name, outcomes, rejected_urls)
 
 
+def reconcile_profile_birth_years(name, details, outcomes, rejected_urls):
+    """Never combine two people merely because one profile lists the other's alias.
+
+    A dissenting birth year may be excluded only when at least two independent
+    providers agree on one year and a profile bearing the exact Japanese name
+    supports that year. Otherwise the whole resolution needs human review.
+    """
+    profiles = [dict(provider=detail.get("provider", ""), id=str(detail.get("id", "")),
+                     url=detail.get("homepage", ""), name=detail.get("name", ""),
+                     birthday=iso_date(detail.get("birthday")), status="accepted")
+                for detail in details]
+    if not japanese(name):
+        return details, profiles
+    by_year = {}
+    for detail in details:
+        year = iso_date(detail.get("birthday"))[:4]
+        if year:
+            by_year.setdefault(year, []).append(detail)
+    if len(by_year) < 2:
+        return details, profiles
+    supported = [year for year, rows in by_year.items()
+                 if len({row.get("provider") for row in rows}) >= 2
+                 and any(identity_key(row.get("name", "")) == identity_key(name)
+                         for row in rows)]
+    if len(supported) != 1 or any(len({row.get("provider") for row in rows}) > 1
+                                  for year, rows in by_year.items() if year != supported[0]):
+        for profile in profiles:
+            profile["status"] = "identity conflict: incompatible birth years"
+        for detail in details:
+            if detail.get("homepage"):
+                rejected_urls[detail["provider"]] = detail["homepage"]
+            outcomes[detail["provider"]] = "identity conflict: incompatible birth years"
+        raise NoActorMatch(name, outcomes, rejected_urls, profiles)
+    chosen_year = supported[0]
+    kept = []
+    for detail, profile in zip(details, profiles):
+        year = profile["birthday"][:4]
+        if year and year != chosen_year:
+            profile["status"] = f"rejected: birth year {year} conflicts with corroborated {chosen_year}"
+        else:
+            kept.append(detail)
+    return kept, profiles
+
+
 def lookup_name(value):
     value = re.sub(r"^\[JAV_CUSTOM_PROVIDER\]\s*", "", value.strip())
     # Legacy Emby Person names sometimes have an IMDb/provider URL appended to
@@ -1096,7 +1141,16 @@ def resolve_with_deadline(name, refresh, deadline):
         raise NoActorMatch(name, outcomes, rejected_urls)
     if not identity:
         reject_ambiguous_stage_name(search_name.strip(), details, outcomes, rejected_urls)
+    details, source_profiles = reconcile_profile_birth_years(
+        search_name.strip(), details, outcomes, rejected_urls)
+    selected_providers = set()
+    for profile in sorted(source_profiles, key=lambda row: SOURCE_PRIORITY.index(row["provider"])
+                          if row["provider"] in SOURCE_PRIORITY else len(SOURCE_PRIORITY)):
+        if profile["status"] == "accepted" and profile["provider"] not in selected_providers:
+            profile["selected"] = True
+            selected_providers.add(profile["provider"])
     record = merge(search_name.strip(), details, identity)
+    record["source_profiles"] = source_profiles
     record["source_status"] = outcomes
     record["source_priority"] = list(SOURCE_PRIORITY)
     record["rejected_urls"] = rejected_urls
@@ -1159,6 +1213,7 @@ class Handler(BaseHTTPRequestHandler):
             append_resolve_event(event)
             self.send_json(404, {"error": "no actor match", "source_status": error.source_status,
                                  "rejected_urls": error.rejected_urls,
+                                 "source_profiles": error.source_profiles,
                                  "source_priority": list(SOURCE_PRIORITY)})
             return
         except Exception as error:

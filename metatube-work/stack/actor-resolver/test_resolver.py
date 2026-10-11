@@ -88,6 +88,36 @@ class ResolverTests(unittest.TestCase):
         self.assertIn('identity conflict', caught.exception.source_status['Babepedia'])
         self.assertEqual(rejected['Babepedia'], details[1]['homepage'])
 
+    def test_maika_rejects_one_stale_former_name_profile_before_merge(self):
+        details = [
+            dict(provider='Minnano-AV', id='old', name='三花れな',
+                 aliases=['星咲マイカ', 'Kanade Mizuki'], birthday='1987-11-30',
+                 homepage='https://www.minnano-av.com/actress-old.html'),
+            dict(provider='Minnano-AV', id='623867', name='星咲マイカ',
+                 aliases=['観月奏'], birthday='1996-07-15',
+                 homepage='https://www.minnano-av.com/actress623867.html'),
+            dict(provider='JAVDatabase', id='maika-hoshizaki', name='星咲マイカ',
+                 aliases=['Maika Hoshizaki'], birthday='1996-07-15',
+                 homepage='https://www.javdatabase.com/idols/maika-hoshizaki/'),
+        ]
+        kept, profiles = resolver.reconcile_profile_birth_years('星咲マイカ', details, {}, {})
+        self.assertEqual([row['id'] for row in kept], ['623867', 'maika-hoshizaki'])
+        self.assertIn('rejected', profiles[0]['status'])
+        self.assertEqual(profiles[0]['url'], 'https://www.minnano-av.com/actress-old.html')
+        result = resolver.merge('星咲マイカ', kept)
+        self.assertEqual(result['birthday'], '1996-07-15')
+        self.assertNotIn('Kanade Mizuki', result['aliases'])
+
+    def test_conflicting_years_without_independent_agreement_are_reviewed(self):
+        details = [dict(provider='Minnano-AV', id='1', name='星咲マイカ', birthday='1987-11-30',
+                        homepage='https://www.minnano-av.com/actress1.html'),
+                   dict(provider='XsList', id='2', name='星咲マイカ', birthday='1996-07-14',
+                        homepage='https://xslist.org/zh/model/2.html')]
+        with self.assertRaises(resolver.NoActorMatch) as caught:
+            resolver.reconcile_profile_birth_years('星咲マイカ', details, {}, {})
+        self.assertEqual(len(caught.exception.source_profiles), 2)
+        self.assertIn('identity conflict', caught.exception.source_status['Minnano-AV'])
+
     def test_aika_resolve_exposes_identity_conflict_in_tool_status(self):
         primary = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
                        birthday='1990-08-25', homepage='https://www.av-league.com/actress/18.html')

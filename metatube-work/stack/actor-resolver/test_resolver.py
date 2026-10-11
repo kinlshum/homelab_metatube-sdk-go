@@ -55,7 +55,8 @@ class ResolverTests(unittest.TestCase):
             in_progress = resolver.recent_resolve_events('鈴木あいか')
             self.assertEqual(len(in_progress), 1)
             self.assertEqual(in_progress[0]['status'], 'started')
-            return {'name': 'Aika Suzuki (JAP、鈴木あいか)', 'sources': []}
+            return {'name': 'Aika Suzuki (JAP、鈴木あいか)', 'sources': [],
+                    'cache_status': 'hit', 'cache_saved_at': '2026-10-11T00:00:00+00:00'}
 
         with patch.object(resolver, 'TRACE_FILE', trace_file), \
              patch.object(resolver, 'resolve', side_effect=finish_lookup):
@@ -63,6 +64,8 @@ class ResolverTests(unittest.TestCase):
             finished = resolver.recent_resolve_events('鈴木あいか')
         self.assertEqual(len(finished), 1)
         self.assertEqual(finished[0]['status'], 'resolved')
+        self.assertEqual(finished[0]['cache_status'], 'hit')
+        self.assertEqual(finished[0]['cache_saved_at'], '2026-10-11T00:00:00+00:00')
         self.assertEqual(handler.send_json.call_args.args[0], 200)
 
     def test_single_word_stage_name_and_age_label(self):
@@ -226,8 +229,14 @@ class ResolverTests(unittest.TestCase):
         detail = dict(provider='XsList', id='4257', name='佐知子', aliases=['Sachiko'], birthday='2000-02-02')
         with patch.object(resolver, 'request_json', return_value={'data': [detail]}) as search, \
              patch.object(resolver, 'actor_detail', return_value=detail):
-            self.assertEqual(resolver.resolve('佐知子')['name'], 'Sachiko (JAP、2000、佐知子)')
-            self.assertEqual(resolver.resolve('佐知子')['name'], 'Sachiko (JAP、2000、佐知子)')
+            fresh = resolver.resolve('佐知子')
+            cached = resolver.resolve('佐知子')
+            self.assertEqual(fresh['name'], 'Sachiko (JAP、2000、佐知子)')
+            self.assertEqual(cached['name'], fresh['name'])
+            self.assertEqual(fresh['cache_status'], 'fresh')
+            self.assertEqual(cached['cache_status'], 'hit')
+            self.assertEqual(cached['cache_saved_at'], fresh['cache_saved_at'])
+            self.assertNotIn('cache_status', resolver.load_cache()['佐知子']['record'])
             search.assert_called_once()
 
     def test_retry_transient_get_reconnects(self):

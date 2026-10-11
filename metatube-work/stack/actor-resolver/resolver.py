@@ -1124,6 +1124,8 @@ def resolve_with_deadline(name, refresh, deadline):
             record = dict(cached["record"])
             if preferred_name and any(source != "Gfriends" for source in record.get("sources", [])):
                 record["name"] = preferred_name
+            record["cache_status"] = "hit"
+            record["cache_saved_at"] = datetime.fromtimestamp(cached["saved_at"], timezone.utc).isoformat()
             return record
 
     identity = actor_db_identity(search_name)
@@ -1204,8 +1206,11 @@ def resolve_with_deadline(name, refresh, deadline):
             record["aliases"].append(preferred_name)
     with _lock:
         cache = load_cache()
-        cache[key] = {"saved_at": time.time(), "record": record, "name_parser_version": NAME_PARSER_VERSION}
+        saved_at = time.time()
+        cache[key] = {"saved_at": saved_at, "record": record, "name_parser_version": NAME_PARSER_VERSION}
         save_cache(cache)
+    record["cache_status"] = "fresh"
+    record["cache_saved_at"] = datetime.fromtimestamp(saved_at, timezone.utc).isoformat()
     return record
 
 
@@ -1265,7 +1270,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         event.update(status="resolved", duration_ms=round((time.monotonic() - started) * 1000),
                      formed_name=record.get("name", ""), sources=record.get("sources", []),
-                     external_ids=record.get("external_ids", {}))
+                     external_ids=record.get("external_ids", {}),
+                     cache_status=record.get("cache_status", "unknown"),
+                     cache_saved_at=record.get("cache_saved_at", ""))
         append_resolve_event(event)
         try:
             self.send_json(200, {"data": record})

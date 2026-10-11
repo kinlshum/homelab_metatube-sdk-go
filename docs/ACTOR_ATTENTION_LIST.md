@@ -22,6 +22,15 @@ folder has `folder.png`; a separate Japanese `あいか` folder has `folder.jpg`
 The Aika Miura alternate folder holds `fanart.png`, `fanart1.png`, and
 `landscape.png`. A Rin Aikawa `-imdb-` folder holds `fanart.jpg`, `folder.png`,
 and `landscape.jpg` and is referenced by two distinct Emby Person IDs. The
+A fresh Admin2 replay for `山岸逢花` on 2026-10-11 returned only three live
+source rows (Babepedia, JAV.LINK, JAVModel), although exact Emby Person `13338`
+retains seven source IDs/links from a prior Identify. The resolver's current
+source search is therefore incomplete for this replay; saved Emby IDs are
+readback evidence, not freshly verified dictionary rows. The Babepedia row
+also supplied `32B show conversions - UK: 32B, EU: 70B, AU: 10B, JP: 70B`
+as `cup_size`. The candidate parser now reduces that field to `B` and tests it.
+Do not publish the three-source replay as a complete seven-source enrichment.
+
 Aika Yamagishi `-imdb-` folder has no images. Names and shared ownership alone
 do not prove which images belong on a canonical Person; preserve every file
 until exact identity and byte-verified backups are established.
@@ -141,21 +150,18 @@ Do not copy either alternate into the canonical folder based on name alone.
 
 ## Aika Natsume split Emby Persons
 
-MetaTube Admin2 → EMBY ACTORS found two exact Natsume-named People records
-with library links. `1650960` is named `Aika Natsume (JAP、夏目藍果)`, has four
-linked items, no saved birthday, and a single `MetaTube=AV-LEAGUE:33649`
-provider ID. Older Person `6995` is named `Aika Natsume (夏目藍果)`, has 29
-linked items and saved birthday `2000-02-02T05:00:00Z`. Actor Editor's exact-ID
-preview explicitly holds `6995`: it contains
-`JAV_CUSTOM_PROVIDER=lookup:Aisha Yuzuki (悠月アイシャ)`, AV-LEAGUE `9620`, XsList
-`469`, and `SextbActress=aisha-yuzuki`. This is stronger than a birthday
-disagreement: the stored provider identity describes another performer.
-Neither Person is safe to delete or merge while linked items remain. The
-current People preview shows item counts but not the individual 29 movie
-links; a paged linked-item inspector is needed in the Actor Editor before
-movie-by-movie correction can proceed through the tool.
-The read-only People inventory assigns canonical `Aika Natsume (JAP、夏目藍果)`
-with `folder.jpg` to Person `1650960`; legacy `Aika Natsume (夏目藍果)` with
-both `folder.jpg` and `folder.png` belongs to Person `6995`. The separate
-`夏目藍果` folder is unowned and contains no images. Preserve both owned image
-sets while the 29 links and contaminated legacy metadata are investigated.
+The first read of `6995` found `lookup:Aisha Yuzuki`, AV-LEAGUE `9620`, and
+XsList `469`, while another Natsume Person `1650960` had four links. A later
+Identify changed the live state without this audit writing it: Admin2 on
+2026-10-11 now reads `6995` as `Aika Natsume (JAP、2000、夏目藍果)`, birthday
+2000-02-02, with the matching AV-LEAGUE `33649`, Minnano `424687`, XsList
+`122757`, and JAVDatabase `aika-natsume` IDs. The wrong Aisha provider is
+absent in that readback. Actor Editor then showed `6995` with 33 mixed movie
+links and Person `1650960` with zero links. The change's native Identify
+trigger, exact cast corrections, and publication receipt were not verified.
+Admin2's fresh source replay still conflicts on birth date: AV-LEAGUE says
+2000-02-02, while Minnano/JAVDatabase say 2000-11-30. No Actor DB Person link
+or publication receipt exists. The current People folder inventory gives
+`folder.png` in the 2000-named folder to `6995` and `folder.jpg` in a
+different undated folder to `1650960`. Preserve both image sets and use the
+Actor Editor's paged linked-item inspector before any movie-by-movie change.

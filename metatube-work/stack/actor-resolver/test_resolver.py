@@ -112,6 +112,12 @@ class ResolverTests(unittest.TestCase):
         self.assertIn('identity unverified', caught.exception.source_status['XsList'])
         self.assertNotIn('Also known as:', resolver.merge('AIKA', [detail])['name'])
 
+    def test_babepedia_bra_conversion_is_not_cup_size(self):
+        self.assertEqual(resolver.normalize_cup_size('32B show conversions - UK: 32B, EU: 70B, AU: 10B, JP: 70B'), 'B')
+        self.assertEqual(resolver.normalize_cup_size('70G'), 'G')
+        self.assertEqual(resolver.normalize_cup_size('H Cup'), 'H')
+        self.assertEqual(resolver.normalize_cup_size('n/a'), '')
+
     def test_emby_provider_suffix_is_not_part_of_actor_name(self):
         dirty = 'Aika Yamagishi (JAP、山岸逢花)-imdb-https xslist.org en model 358.html'
         self.assertEqual(resolver.lookup_name(dirty), '山岸逢花')

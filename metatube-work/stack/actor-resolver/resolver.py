@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 9  # Reject ambiguous single-name profiles and malformed Japanese aliases.
+NAME_PARSER_VERSION = 10  # Re-evaluate cached actors with identity, alias, and cup-size fixes.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -403,6 +403,15 @@ def javlibrary_detail(name):
     return None
 
 
+def normalize_cup_size(raw):
+    """Keep the cup letter, not Babepedia's bra-size conversion sentence."""
+    value = str(raw or "").strip().upper()
+    match = re.match(r"^(?:\d{2,3}\s*)?([A-Z]{1,3})(?:\s|$|\b)", value)
+    if not match or match.group(1) in {"N", "NA", "NAN", "UNK"}:
+        return ""
+    return match.group(1)
+
+
 def babepedia_detail(names):
     originals = {identity_key(name) for name in names if japanese(name)}
     rejected_url = ""
@@ -443,7 +452,7 @@ def babepedia_detail(names):
             "id": slug, "name": actor_name, "provider": "Babepedia", "homepage": homepage,
             "aliases": aliases, "images": [urllib.parse.urljoin(homepage, value) for value in images],
             "birthday": birthday, "debut_date": "", "blood_type": "",
-            "cup_size": profile_value(document, "Bra/cup size"),
+            "cup_size": normalize_cup_size(profile_value(document, "Bra/cup size")),
             "measurements": profile_value(document, "Measurements").removesuffix(" ("),
             "nationality": profile_value(document, "Nationality"),
             "height": int(match.group(1)) if (match := re.search(r"(\d+) cm", profile_value(document, "Height"))) else 0,

@@ -151,6 +151,20 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual([row['id'] for row in kept], ['107218', 'Airu_Oshima'])
         self.assertIn('rejected: birth date', profiles[2]['status'])
 
+    def test_aikarin_excludes_conflicting_year_but_keeps_source_disagreement_visible(self):
+        details = [
+            dict(provider='AV-LEAGUE', id='27', name='あいかりん', aliases=['Aikarin'],
+                 birthday='1993-11-03'),
+            dict(provider='Minnano-AV', id='573548', name='あいかりん', birthday='1992-03-11'),
+            dict(provider='XsList', id='3771', name='あいかりん', birthday='1993-11-02'),
+        ]
+        kept, profiles = resolver.reconcile_profile_birth_years('あいかりん', details, {}, {})
+        self.assertEqual({row['id'] for row in kept}, {'27', '3771'})
+        self.assertIn('rejected', profiles[1]['status'])
+        formed = resolver.merge('あいかりん', kept)
+        self.assertEqual('Aikarin (JAP、1993、あいかりん)', formed['name'])
+        self.assertEqual('1993-11-03', formed['birthday'])
+
     def test_natsume_exact_name_date_conflict_requires_review(self):
         details = [
             dict(provider='AV-LEAGUE', id='33649', name='夏目藍果',

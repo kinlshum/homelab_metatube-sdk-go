@@ -658,7 +658,9 @@ def reject_ambiguous_stage_name(name, details, outcomes, rejected_urls):
               "identity unverified: no Japanese profile name for single-name search")
     for detail in details:
         provider = detail.get("provider", "")
-        outcomes[provider] = reason
+        subject = japanese_profile_name(detail) or "none"
+        year = iso_date(detail.get("birthday"))[:4] or "unknown"
+        outcomes[provider] = f"{reason}; Japanese={subject}; birth year={year}"
         if detail.get("homepage"):
             rejected_urls[provider] = detail["homepage"]
     raise NoActorMatch(name, outcomes, rejected_urls)

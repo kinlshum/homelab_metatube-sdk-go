@@ -621,6 +621,10 @@ def clean_aliases(values, canonical_name):
             continue
         if not valid_actor_label(value):
             continue
+        # Bare AIKA/あいか belongs to the verified 1990 single-name performer.
+        # Other Aika performers keep their qualified Japanese identity instead.
+        if value.casefold() in {"aika", "あいか"} and primary_japanese != "あいか":
+            continue
         # Age annotations are source facts, not durable identity aliases.
         if re.search(r'/\s*\d{1,3}\s*[岁歳]\s*$', value):
             continue
@@ -784,6 +788,8 @@ def actor_detail(result):
 def first(details, field):
     for detail in details:
         value = detail.get(field)
+        if isinstance(value, str) and value.strip().casefold() in {"n/a", "unknown", "none", "-", "—"}:
+            continue
         if value not in (None, "", 0, [], {}):
             return value, detail["provider"]
     return "", ""
@@ -933,6 +939,8 @@ def merge(name, details, identity=None):
         values = {}
         for detail in usable_details:
             value = iso_date(detail.get(field)) if field == "birthday" else detail.get(field)
+            if isinstance(value, str) and value.strip().casefold() in {"n/a", "unknown", "none", "-", "—"}:
+                continue
             if value not in (None, "", 0):
                 values.setdefault(str(value), []).append(detail["provider"])
         if len(values) > 1:

@@ -567,6 +567,16 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual("三浦あいか", resolver.japanese_profile_name({
             "name": malformed, "aliases": ["三浦あいか"]}))
 
+    def test_named_aika_does_not_claim_the_reserved_single_name(self):
+        self.assertEqual(["なつめあいか"], resolver.clean_aliases(
+            ["AIKA", "Aika", "あいか", "なつめあいか"],
+            "Aika Natsume (JAP、2000、夏目藍果)"))
+        self.assertEqual(["AIKA（三浦あいか）"], resolver.clean_aliases(
+            ["AIKA", "あいか", "AIKA（三浦あいか）"],
+            "Aika Miura (JAP、1975、三浦あいか)"))
+        self.assertEqual(("", ""), resolver.first([
+            {"provider": "XsList", "blood_type": "n/a"}], "blood_type"))
+
     def test_merges_nao_mizuki_identity(self):
         record = resolver.merge("水城奈緒", [
             {"id": "162", "name": "水城奈緒", "provider": "XsList",

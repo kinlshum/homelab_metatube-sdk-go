@@ -800,6 +800,16 @@ def reconcile_profile_birth_years(name, details, outcomes, rejected_urls):
                 profile["status"] = (f"rejected: birth date {profile['birthday']} conflicts "
                                      f"with corroborated {chosen_date.isoformat()}")
                 kept.remove(detail)
+    accepted_providers = {profile["provider"] for profile in profiles
+                          if profile["status"] == "accepted"}
+    for profile in profiles:
+        if not profile["status"].startswith("rejected:"):
+            continue
+        provider = profile["provider"]
+        if profile["url"]:
+            rejected_urls.setdefault(provider, profile["url"])
+        outcomes[provider] = ("partial: rejected profile; see source_profiles"
+                              if provider in accepted_providers else profile["status"])
     return kept, profiles
 
 

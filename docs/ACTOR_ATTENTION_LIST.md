@@ -300,6 +300,13 @@ resolver returns an identity-review hold rather than selecting a birthday by
 priority. These are regression-tested rules, not claims about a deployed
 resolver or a completed Emby cleanup.
 
+The resolver candidate reports each excluded profile as rejected in
+`source_profiles`, records its URL in `rejected_urls`, and changes the provider
+summary from `found` to rejected or partial when another profile from the same
+provider remains accepted. Admin2 should display the profile rows, not infer
+acceptance from a provider-level `found` alone. A prefecture used as birthplace
+does not imply nationality; the field remains blank unless a source states it.
+
 Live Emby search returned two linked Persons with the same clean name:
 `12094` has 20 linked items and saved birthday 1996-07-14; `1129000` has
 nine linked items. Actor DB `a496d41e-2c06-4273-bb3f-c85b093cbdd6` has

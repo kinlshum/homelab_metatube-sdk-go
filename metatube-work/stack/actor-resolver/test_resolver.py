@@ -161,12 +161,35 @@ class ResolverTests(unittest.TestCase):
             dict(provider='AV-LEAGUE', id='9657', name='夢乃あいか',
                  birthday='1994-08-26'),
         ]
-        kept, profiles = resolver.reconcile_profile_birth_years('夢乃あいか', details, {}, {})
+        outcomes = {row['provider']: 'found' for row in details}
+        rejected_urls = {}
+        kept, profiles = resolver.reconcile_profile_birth_years(
+            '夢乃あいか', details, outcomes, rejected_urls)
         self.assertEqual({row['id'] for row in kept}, {'9', '545220', '9657'})
         self.assertIn('rejected', profiles[1]['status'])
+        self.assertIn('rejected', outcomes['JAV.LINK'])
         formed = resolver.merge('夢乃あいか', kept)
         self.assertEqual('1994-08-26', formed['birthday'])
         self.assertEqual('AV-LEAGUE', formed['provenance']['birthday'])
+
+    def test_rejected_profile_reports_url_and_partial_provider_status(self):
+        details = [
+            dict(provider='AV-LEAGUE', id='old', name='Other', birthday='1980-01-01',
+                 homepage='https://example.invalid/old'),
+            dict(provider='AV-LEAGUE', id='good0', name='星咲マイカ', birthday='1998-01-01',
+                 homepage='https://example.invalid/good0'),
+            dict(provider='Minnano-AV', id='good1', name='星咲マイカ', birthday='1998-01-01',
+                 homepage='https://example.invalid/good1'),
+        ]
+        outcomes = {'AV-LEAGUE': 'found', 'Minnano-AV': 'found'}
+        rejected_urls = {}
+        kept, profiles = resolver.reconcile_profile_birth_years(
+            '星咲マイカ', details, outcomes, rejected_urls)
+        self.assertEqual({'good0', 'good1'}, {row['id'] for row in kept})
+        self.assertIn('rejected', profiles[0]['status'])
+        self.assertEqual('https://example.invalid/old', rejected_urls['AV-LEAGUE'])
+        self.assertEqual('partial: rejected profile; see source_profiles',
+                         outcomes['AV-LEAGUE'])
 
     def test_suzuki_excludes_distant_same_year_profile(self):
         details = [

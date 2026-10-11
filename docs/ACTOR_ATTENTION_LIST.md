@@ -40,6 +40,21 @@ Japanese subject is exactly `あいか` and its sourced birth year is 1990,
 including when a saved Actor DB identity exists. Do not fill the AIKA source
 table with Yumeno's URL or propagate its metadata to Person `1195996`.
 
+JAV-Master 2.1.97's read-only **Compare two exact Emby Persons** paired
+Miura `165649` against bare AIKA `1195996`. The former now has a saved
+1975-11-02 birthday and 14 movie links; the latter has **821** links and a
+saved 1990 birth year. The bare record's provider table contains
+`Gfriends=美保結衣`, `JAV_CUSTOM_PROVIDER=lookup:Yui Miho (美保結衣)`,
+`babepedia=Yui_Miho`, and `javdatabase=yui-miho`, plus IDs and an
+overview from other names. Its `AV-LEAGUE=8822` differs from the verified
+bare-AIKA profile 18. Only the first 100 of 821 linked movies were visible
+in the comparison, so an apparent lack of shared links is **not** proof.
+Examples of exact Miura movie links were `ADN-076` item `1454975` and
+`JUC-922` item `1609710`; the bare AIKA sample included `ABG-006`
+item `1457608` and `AVSW-050` item `1172992`. Resolve the mismatched
+provider IDs and review all movie pages through Actor Editor before any
+Person link, cast rewrite, metadata refresh, or artwork copy.
+
 Artwork inventory for the Aika family found 50 folders. The canonical AIKA
 folder has `folder.png`; a separate Japanese `あいか` folder has `folder.jpg`.
 The Aika Miura alternate folder holds `fanart.png`, `fanart1.png`, and
@@ -162,6 +177,17 @@ Keep both Person records and photos until exact identity and artwork backup
 are verified. The local Admin2 candidate now disables its zero-link-only
 delete path; owner review and deployment remain pending.
 
+The 2.1.97 Actor Editor exact-Person comparison confirms `397993` has
+**455** movie links while `1193369` has zero, but the 455-link record's
+saved provider IDs are still contaminated: `AV-LEAGUE=1617`,
+`Gfriends=上原花恋`, `JAV_CUSTOM_PROVIDER=lookup:上原花恋`,
+`JAVDatabase=mako-oda`, and `Babepedia=Mako_Oda`. This is not the
+verified Yumeno AV-LEAGUE profile 9657. The comparison displayed only the
+first 100 of 455 links, including several titles naming bare AIKA; do not
+assign all 455 movies to Yumeno or delete the zero-link Japanese Person.
+The new isolated Actor Editor candidate adds 100-movie comparison windows
+so every exact item-ID page can be inspected in the UI before a decision.
+
 ## Aika Suzuki exact-Person check
 
 JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person
@@ -198,6 +224,15 @@ or publication receipt exists. The current People folder inventory gives
 `folder.png` in the 2000-named folder to `6995` and `folder.jpg` in a
 different undated folder to `1650960`. Preserve both image sets and use the
 Actor Editor's paged linked-item inspector before any movie-by-movie change.
+
+The 2.1.97 read-only comparison of these exact IDs shows `6995` with 33
+links and `1650960` with zero. The 33-link list includes a direct debut
+`EBOD-808` (item `1451383`) and `GVH-315` (item `1608140`), but also
+`BBAN-195` (item `1639051`), whose title names Seira Hoshisaki and
+Ai Hoshina, and `KTKC-053` (item `1623886`), whose title names Maika.
+Titles alone cannot decide each cast entry. The isolated comparison-tool
+candidate exposes each movie's provider IDs and cast inside the same row,
+so these particular links can be checked before reassigning.
 
 ## Maika Hoshizaki duplicate source profiles and Emby Persons
 

@@ -118,6 +118,24 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(len(caught.exception.source_profiles), 2)
         self.assertIn('identity conflict', caught.exception.source_status['Minnano-AV'])
 
+    def test_yumeno_excludes_wrong_year_profile_then_uses_priority_for_day(self):
+        details = [
+            dict(provider='XsList', id='9', name='夢乃あいか', birthday='1994-08-25'),
+            dict(provider='JAV.LINK', id='yumeno-aika', name='夢乃あいか',
+                 birthday='1993-09-13'),
+            dict(provider='Minnano-AV', id='545220', name='夢乃あいか',
+                 birthday='1994-08-26'),
+            dict(provider='AV-LEAGUE', id='9657', name='夢乃あいか',
+                 birthday='1994-08-26'),
+        ]
+        kept, profiles = resolver.reconcile_profile_birth_years('夢乃あいか', details, {}, {})
+        self.assertEqual({row['id'] for row in kept}, {'9', '545220', '9657'})
+        self.assertIn('rejected', profiles[1]['status'])
+        formed = resolver.merge('夢乃あいか', kept)
+        self.assertEqual('1994-08-26', formed['birthday'])
+        self.assertEqual('AV-LEAGUE', formed['provenance']['birthday'])
+
+
     def test_aika_resolve_exposes_identity_conflict_in_tool_status(self):
         primary = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
                        birthday='1990-08-25', homepage='https://www.av-league.com/actress/18.html')

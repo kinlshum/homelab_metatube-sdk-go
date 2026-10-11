@@ -129,6 +129,16 @@ table but does not highlight or block this cross-identity contamination. Review
 the linked movies and correct the exact Person metadata through the tools
 before any link, INI publication, refresh, or People folder move.
 
+The later Admin2 Emby search also found Person `1193369`, named `夢乃あいか`,
+with no linked movies and a saved 1994-08-25 birthday. It is **not** a safe
+zero-link delete: Actor Editor shows that its Japanese-name People folder
+owns a custom `folder.jpg`, while the 455-link Person `397993` owns a separate
+canonical-folder `folder.png`. The zero-link Person also has conflicting
+`XsList=20` versus XsList URL `/9.html` and `javtube=GFriends:AIKA` IDs.
+Keep both Person records and photos until exact identity and artwork backup
+are verified. The local Admin2 candidate now disables its zero-link-only
+delete path; owner review and deployment remain pending.
+
 ## Aika Suzuki exact-Person check
 
 JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person

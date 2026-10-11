@@ -41,3 +41,18 @@ an **identity contamination hold**, not a date field to fill automatically.
 Do not use common folder ownership to move the three fanart files: the saved
 Person itself contains mixed facts. Review the 14 linked items and provider IDs
 in the tools before editing or linking either actor.
+
+## Aika Yumeno exact-Person check
+
+JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person
+`397993`, named `Aika Yumeno (JAP、1994、夢乃あいか)`, with birthday stored as
+`1994-08-25T04:00:00Z` and **455 linked library items**. Its provider-ID table
+contains XsList `224`, AV-LEAGUE `1617`, Gfriends `上原花恋`, JAVDatabase
+`mako-oda`, Babepedia `Mako_Oda`, and `JAV_CUSTOM_PROVIDER=lookup:上原花恋`;
+other keys refer to bare `AIKA`. These do not describe one Yumeno identity.
+The matching display name and birth year therefore cannot justify linking the
+Actor DB row `02156d03-92af-47cf-8660-512d6478fb13` to this Person or
+copying photos. The People maintenance preview currently exposes the full ID
+table but does not highlight or block this cross-identity contamination. Review
+the linked movies and correct the exact Person metadata through the tools
+before any link, INI publication, refresh, or People folder move.

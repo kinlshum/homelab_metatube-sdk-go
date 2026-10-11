@@ -27,6 +27,16 @@ field and must remain labelled unknown.
 | `Aika Yumeno (JAP、1994、夢乃あいか)` | Admin2 dictionary found seven source URLs. [AV-LEAGUE :live](https://www.av-league.com/actress/9657.html), [Minnano-AV :live](https://www.minnano-av.com/actress545220.html), [JAVDatabase :live](https://www.javdatabase.com/idols/aika-yumeno/), and [Babepedia :live](https://www.babepedia.com/babe/Aika_Yumeno) reported 1994-08-26, while [XsList :live](https://xslist.org/zh/model/9.html) reported 1994-08-25 and [JAV.LINK :live](https://jav.link/jav/yumeno-aika/) reported 1993-09-13. The [manufacturer profile :live](https://tameikegoro.jp/actress/detail/245419) also says 1994-08-26. Live resolver still printed 1994-08-25 because its mounted override was stale, and mislabeled `東京都` as nationality. Candidate parser now prefers verified AV-LEAGUE/Minnano birthdays over a conflicting override and treats prefecture as birthplace; source-controlled override is corrected. Actor DB revision 1 is already named correctly but has no publication receipt. | Keep Aika Yumeno separate from bare AIKA and preserve both existing Yumeno People folders. Verify the corrected resolver preview and live mounted override behavior after release before any Emby Identify, INI publication, folder copy, or cleanup. |
 | `ANRI (JAP、1991、坂口杏里)` | Admin2 dictionary replay returned no formed source result. Resolver request `b8f2949f-a0ef-45ad-9a92-4adee1a51e5e` ended `not_found` after 75 seconds. Provider trace showed AV-LEAGUE and Minnano search results but zero accepted actor records; XsList bridge returned 404. Actor DB already has the canonical record, revision 1, with no publication receipt. A [Sponichi profile :live](https://www.sponichi.co.jp/person/UDAR10235372/) confirms 1991-03-03 and the `Sakaguchi Anri` romanization, but is not a resolver provider. | Keep for source-profile discovery and exact-match rule review. Do not infer a profile from a generic `ANRI` search. |
 
+JAV-Master 2.1.97 compared exact Yamagishi Person `13338` to `1192462`
+and then `1255983`. The first now has 174 linked items, saved
+`Aika Yamagishi (JAP、1992、山岸逢花)`, a 1992-11-30 Emby birthday, and
+AV-LEAGUE `9376`; each undated alternate has zero linked items and
+XsList `358`, matching the profile ID on `13338`. The comparison exposed
+only the first 100 of 174 linked items. All three IDs have been associated
+with the same People folder in the image-reference inventory, so neither
+zero-link Person may be deleted until the custom images and exact folder
+ownership are preserved and all link pages are reviewed.
+
 The 2026-10-11 Admin2 **bare `あいか`** replay is another concrete search-rank
 failure. Resolver request `4c940b1f-cd77-4f61-8c84-7d68f134563e` from
 Admin2 `192.168.10.167` ended `not_found` after 75,007 ms with no formed name

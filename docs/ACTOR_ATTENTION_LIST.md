@@ -92,7 +92,10 @@ are 1988-02-10 (AV-LEAGUE), 1988-06-29 (XsList), and 1988-06-30
 `Mika Aikawa`. The [ATTACKERS official actress index](https://attackers.net/actress/a)
 lists `藍川美夏` as `AIKAWA MIKA` in Japanese surname-first order. The
 source-controlled resolver candidate therefore forms `Mika Aikawa` without
-overriding the disputed birthday. The live
+overriding the disputed birthday. The resolver container reads the mounted
+`/data/overrides.json`, while the scoped resolver image deploy script preserves
+that mount. Release verification must compare and safely update the mounted
+override before claiming this name fix is live. The live
 overview also accepts `なつみさん33歳 夫に内緒で他人棒SEX` as an alias, prints
 `Blood Type: n/a`, and labels Osaka prefecture as nationality. Exact Emby
 Person `36375` has 33 linked items and saved birthday 1988-02-10 with the

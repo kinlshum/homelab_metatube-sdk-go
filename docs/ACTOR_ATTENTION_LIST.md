@@ -91,3 +91,8 @@ Neither Person is safe to delete or merge while linked items remain. The
 current People preview shows item counts but not the individual 29 movie
 links; a paged linked-item inspector is needed in the Actor Editor before
 movie-by-movie correction can proceed through the tool.
+The read-only People inventory assigns canonical `Aika Natsume (JAP、夏目藍果)`
+with `folder.jpg` to Person `1650960`; legacy `Aika Natsume (夏目藍果)` with
+both `folder.jpg` and `folder.png` belongs to Person `6995`. The separate
+`夏目藍果` folder is unowned and contains no images. Preserve both owned image
+sets while the 29 links and contaminated legacy metadata are investigated.

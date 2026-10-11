@@ -22,7 +22,7 @@ CACHE_FILE = os.getenv("CACHE_FILE", "/data/cache.json")
 OVERRIDES_FILE = os.getenv("OVERRIDES_FILE", "/data/overrides.json")
 FLARE_URL = os.getenv("FLARE_URL", "http://flaresolverr:8191/v1")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "604800"))
-NAME_PARSER_VERSION = 8  # Rebuild cached names with verified Actor DB birth-year fallback.
+NAME_PARSER_VERSION = 9  # Reject ambiguous single-name profiles and malformed Japanese aliases.
 RESOLVE_BUDGET = 75.0  # Leave room before Emby's 90-second lookup deadline.
 SOURCE_TIMEOUT = 25.0
 ACTOR_DB_LOOKUP_URL = os.getenv("ACTOR_DB_LOOKUP_URL", "http://192.168.10.167:8080/admin/api/actor-dictionary-result")
@@ -634,6 +634,36 @@ def clean_aliases(values, canonical_name):
     return cleaned
 
 
+def japanese_profile_name(detail):
+    """Return an actual Japanese identity label, never a source UI caption."""
+    for value in [detail.get("name", ""), *detail.get("aliases", [])]:
+        value = (value or "").strip()
+        if value and japanese(value) and not re.search(r"[A-Za-z:]", value):
+            return value
+    return ""
+
+
+def reject_ambiguous_stage_name(name, details, outcomes, rejected_urls):
+    """A shared one-word stage name cannot join unrelated provider profiles."""
+    if japanese(name) or len(name.split()) != 1 or not details:
+        return
+    subjects = {identity_key(subject) for detail in details
+                if (subject := japanese_profile_name(detail))}
+    years = {birthday[:4] for detail in details
+             if (birthday := iso_date(detail.get("birthday")))}
+    if len(subjects) == 1 and (not years or max(years) == min(years)):
+        return
+    reason = ("identity conflict: shared single-name search matched different profiles"
+              if len(subjects) > 1 or len(years) > 1 else
+              "identity unverified: no Japanese profile name for single-name search")
+    for detail in details:
+        provider = detail.get("provider", "")
+        outcomes[provider] = reason
+        if detail.get("homepage"):
+            rejected_urls[provider] = detail["homepage"]
+    raise NoActorMatch(name, outcomes, rejected_urls)
+
+
 def lookup_name(value):
     value = re.sub(r"^\[JAV_CUSTOM_PROVIDER\]\s*", "", value.strip())
     canonical = re.search(r"\(JAP、(?:\d{4}|\?)、([^()]+)\)\s*$", value)
@@ -800,7 +830,8 @@ def merge(name, details, identity=None):
             if value and value not in images:
                 images.append(value)
 
-    original = name if japanese(name) else next((value for value in aliases if japanese(value)), name)
+    original = name if japanese(name) else next(
+        (value for detail in usable_details if (value := japanese_profile_name(detail))), name)
     english = (identity or {}).get("western_name") or western_name(usable_details, aliases, original)
     birthday, birthday_source = first_date(usable_details, "birthday")
     year = birthday[:4] if birthday else (identity or {}).get("birth_year", "")
@@ -994,6 +1025,8 @@ def resolve_with_deadline(name, refresh, deadline):
                                   outcomes, rejected_urls)
     if not details:
         raise NoActorMatch(name, outcomes, rejected_urls)
+    if not identity:
+        reject_ambiguous_stage_name(search_name.strip(), details, outcomes, rejected_urls)
     record = merge(search_name.strip(), details, identity)
     record["source_status"] = outcomes
     record["source_priority"] = list(SOURCE_PRIORITY)

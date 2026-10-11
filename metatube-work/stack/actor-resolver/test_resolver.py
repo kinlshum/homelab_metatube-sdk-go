@@ -53,6 +53,51 @@ class ResolverTests(unittest.TestCase):
                 self.assertEqual(record['name'], 'Sachiko (JAP、2000、佐知子)')
                 self.assertEqual(record['aliases'], ['さちこ'])
 
+    def test_aika_shared_stage_name_rejects_mixed_people_before_merge(self):
+        details = [
+            dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
+                 birthday='1990-08-25', homepage='https://www.av-league.com/actress/18.html'),
+            dict(provider='Babepedia', id='Aika_Miura', name='Aika Miura',
+                 aliases=['AIKA', '三浦あいか'], birthday='1975-11-02',
+                 homepage='https://www.babepedia.com/babe/Aika_Miura'),
+        ]
+        outcomes, rejected = {}, {}
+        with self.assertRaises(resolver.NoActorMatch) as caught:
+            resolver.reject_ambiguous_stage_name('AIKA', details, outcomes, rejected)
+        self.assertIn('identity conflict', caught.exception.source_status['Babepedia'])
+        self.assertEqual(rejected['Babepedia'], details[1]['homepage'])
+
+    def test_aika_resolve_exposes_identity_conflict_in_tool_status(self):
+        primary = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
+                       birthday='1990-08-25', homepage='https://www.av-league.com/actress/18.html')
+        other = dict(provider='Babepedia', id='Aika_Miura', name='Aika Miura',
+                     aliases=['AIKA', '三浦あいか'], birthday='1975-11-02',
+                     homepage='https://www.babepedia.com/babe/Aika_Miura')
+        with patch.object(resolver, 'CACHE_FILE', os.path.join(self.temporary.name, 'cache.json')), \
+             patch.object(resolver, 'request_json', return_value={'data': [primary]}), \
+             patch.object(resolver, 'actor_detail', return_value=primary), \
+             patch.object(resolver, 'babepedia_detail', return_value=other):
+            with self.assertRaises(resolver.NoActorMatch) as caught:
+                resolver.resolve('AIKA')
+        self.assertIn('identity conflict', caught.exception.source_status['AV-LEAGUE'])
+        self.assertEqual(caught.exception.rejected_urls['Babepedia'], other['homepage'])
+
+    def test_source_caption_is_not_a_japanese_person_name(self):
+        detail = dict(provider='XsList', id='824', name='AIKA',
+                      aliases=['Also known as: 三浦あいか'], birthday='1990-08-24')
+        self.assertEqual(resolver.japanese_profile_name(detail), '')
+        with self.assertRaises(resolver.NoActorMatch) as caught:
+            resolver.reject_ambiguous_stage_name('AIKA', [detail], {}, {})
+        self.assertIn('identity unverified', caught.exception.source_status['XsList'])
+        self.assertNotIn('Also known as:', resolver.merge('AIKA', [detail])['name'])
+
+    def test_one_verified_single_name_profile_can_form_canonical_name(self):
+        detail = dict(provider='AV-LEAGUE', id='18', name='AIKA', aliases=['あいか'],
+                      birthday='1990-08-25')
+        resolver.reject_ambiguous_stage_name('AIKA', [detail], {}, {})
+        self.assertEqual(resolver.merge('AIKA', [detail])['name'],
+                         'AIKA (JAP、1990、あいか)')
+
     def test_single_word_does_not_relax_handle_url_or_numeric_rejection(self):
         for value in ('@Sachiko', 'https://Sachiko', 'Sachiko27', 'Sachiko/27profile',
                       'Sachiko/123', '佐知子 Sachiko', 'One Two Three Four Five'):

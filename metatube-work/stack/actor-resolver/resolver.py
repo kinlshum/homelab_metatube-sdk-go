@@ -900,15 +900,29 @@ def merge(name, details, identity=None):
     fields["place_of_birth"], source = place_of_birth(usable_details)
     if source:
         provenance["place_of_birth"] = source
+    # Some providers put a Japanese prefecture in their `nationality` slot.
+    # Keep that as birthplace; never print Tokyo/Osaka as a nationality.
+    locality = str(fields["nationality"] or "").strip()
+    if re.fullmatch(r"[\u3400-\u9fff]{2,8}[都道府県]", locality):
+        if not fields["place_of_birth"]:
+            fields["place_of_birth"] = locality
+            provenance["place_of_birth"] = provenance.get("nationality", "Provider")
+        fields["nationality"] = "日本"
+        provenance["nationality"] = "Derived from Japanese prefecture"
+    source_birthday = birthday
     if override:
-        birthday = iso_date(override.get("birthday")) or birthday
+        override_birthday = iso_date(override.get("birthday"))
+        # A stale override must not replace a date returned by the two highest
+        # priority actor profiles. Keep the override only as a fallback when
+        # those profiles have not supplied a verified birthday.
+        if override_birthday and birthday_source not in ("AV-LEAGUE", "Minnano-AV"):
+            birthday = override_birthday
+            provenance["birthday"] = "Curated override"
         fields["debut_date"] = override.get("debut_date", fields["debut_date"])
         fields["debut_title"] = override.get("debut_title", fields["debut_title"])
         fields["av_appearance_period"] = override.get(
             "av_appearance_period", fields["av_appearance_period"]
         )
-        if override.get("birthday"):
-            provenance["birthday"] = "Minnano-AV"
         if override.get("debut_date"):
             provenance["debut_date"] = "Minnano-AV"
         external_ids.update(override.get("external_ids", {}))
@@ -923,6 +937,11 @@ def merge(name, details, identity=None):
                 values.setdefault(str(value), []).append(detail["provider"])
         if len(values) > 1:
             conflicts[field] = values
+    if (override and (override_birthday := iso_date(override.get("birthday")))
+            and source_birthday and override_birthday != source_birthday):
+        birthday_conflicts = conflicts.setdefault("birthday", {})
+        birthday_conflicts.setdefault(source_birthday, [birthday_source])
+        birthday_conflicts.setdefault(override_birthday, []).append("Curated override")
 
     # Choose the same verified source priority used for names and facts.
     stable_provider = next((provider for provider in SOURCE_PRIORITY

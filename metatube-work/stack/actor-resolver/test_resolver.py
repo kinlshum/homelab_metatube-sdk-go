@@ -664,6 +664,25 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual("Aika Yumeno (JAP、1994、夢乃あいか)", record["name"])
         self.assertEqual("XsList:9", record["id"])
 
+    def test_aika_yumeno_high_priority_birthday_beats_stale_override(self):
+        with open(resolver.OVERRIDES_FILE, "w", encoding="utf-8") as handle:
+            json.dump({"actors": [{"canonical": "Aika Yumeno", "original": "夢乃あいか",
+                                   "birth_year": 1994, "birthday": "1994-08-25"}]}, handle,
+                      ensure_ascii=False)
+        actor = {"id": "9657", "name": "夢乃あいか", "provider": "AV-LEAGUE",
+                 "homepage": "https://www.av-league.com/actress/9657.html",
+                 "aliases": [], "images": [], "birthday": "1994-08-26",
+                 "debut_date": "", "blood_type": "B", "cup_size": "G",
+                 "measurements": "B79/W52/H78", "nationality": "東京都",
+                 "height": 149, "hobby": "", "skill": "", "summary": ""}
+        record = resolver.merge("夢乃あいか", [actor])
+        self.assertEqual("1994-08-26", record["birthday"])
+        self.assertEqual("AV-LEAGUE", record["provenance"]["birthday"])
+        self.assertEqual(["AV-LEAGUE"], record["conflicts"]["birthday"]["1994-08-26"])
+        self.assertEqual(["Curated override"], record["conflicts"]["birthday"]["1994-08-25"])
+        self.assertEqual("日本", record["nationality"])
+        self.assertEqual("東京都", record["place_of_birth"])
+
     def test_akane_rei_uses_latest_javlibrary_name(self):
         with open(resolver.OVERRIDES_FILE, "w", encoding="utf-8") as handle:
             json.dump({"actors": [{

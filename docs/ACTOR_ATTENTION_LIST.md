@@ -230,6 +230,26 @@ because the saved Actor DB name omits `1991`; it made no link. Review the
 source-date conflict and remaining movie pages before editing the canonical
 name, linking, copying art, or deleting the zero-link Person.
 
+## 2026-10-11 production comparison follow-up
+
+JAV-Master 2.1.98's exact Person comparison pages through the full Emby
+library. Bare `AIKA` Person `1195996` has 821 linked items; Aika Miura Person
+`165649` has 14. Their saved names, birth years (1990 versus 1975), and
+provider IDs differ. A manual walk of nine UI windows found no visible shared
+movie ID, but global overlap was not computed by the deployed tool. Keep the
+two identities separate and do not bulk-move either Person's movies. An
+isolated JAV-Master candidate adds a read-only full exact-ID audit for that
+check; it does not certify cast correctness.
+
+Aika Yamagishi Person `13338` now has 174 linked items in the live tool;
+Persons `1192462` and `1255983` each have zero. The zero-link records share
+XsList `358` and a People image-reference folder with the linked Person.
+Actor DB `f8d297ec-f114-48df-8d1f-44a2a76b6c94` still omits the 1992
+birth year, so the exact-link preview holds `13338` because the names differ.
+No Actor DB link, Person deletion, or image move was made. Resolve the
+source-backed canonical name through the reviewed workflow first, then
+rerun the exact link and folder ownership previews.
+
 ## Aika Natsume split Emby Persons
 
 The first read of `6995` found `lookup:Aisha Yuzuki`, AV-LEAGUE `9620`, and

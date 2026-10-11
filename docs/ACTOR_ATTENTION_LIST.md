@@ -75,3 +75,19 @@ found canonical `Aika Suzuki (JAP、鈴木あいか)` owned by Person `43776` wi
 `folder.png`, an unowned alternate `Aika Suzuki (鈴木あいか)` with `folder.jpg`,
 and Japanese `鈴木あいか` owned by **another** Person `502208` with `folder.jpg`.
 Do not copy either alternate into the canonical folder based on name alone.
+
+## Aika Natsume split Emby Persons
+
+MetaTube Admin2 → EMBY ACTORS found two exact Natsume-named People records
+with library links. `1650960` is named `Aika Natsume (JAP、夏目藍果)`, has four
+linked items, no saved birthday, and a single `MetaTube=AV-LEAGUE:33649`
+provider ID. Older Person `6995` is named `Aika Natsume (夏目藍果)`, has 29
+linked items and saved birthday `2000-02-02T05:00:00Z`. Actor Editor's exact-ID
+preview explicitly holds `6995`: it contains
+`JAV_CUSTOM_PROVIDER=lookup:Aisha Yuzuki (悠月アイシャ)`, AV-LEAGUE `9620`, XsList
+`469`, and `SextbActress=aisha-yuzuki`. This is stronger than a birthday
+disagreement: the stored provider identity describes another performer.
+Neither Person is safe to delete or merge while linked items remain. The
+current People preview shows item counts but not the individual 29 movie
+links; a paged linked-item inspector is needed in the Actor Editor before
+movie-by-movie correction can proceed through the tool.

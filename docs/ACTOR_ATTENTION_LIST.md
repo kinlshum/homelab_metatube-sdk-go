@@ -42,6 +42,29 @@ Do not use common folder ownership to move the three fanart files: the saved
 Person itself contains mixed facts. Review the 14 linked items and provider IDs
 in the tools before editing or linking either actor.
 
+A later Admin2 exact-ID read showed the same Person `165649` renamed to
+`Aika Miura (JAP、1975、三浦あいか)` with saved birthday `1975-11-02`,
+`MetaTube=Minnano-AV:611128`, and a newly formed overview. The new overview
+still contains the malformed `熟女) （あいか` alias. This happened without an
+Actor DB Person link or publication receipt in the read-only audit; do not
+interpret the name change as verified end-to-end publication or infer that
+the earlier mixed identity was safely repaired.
+
+## Aika Suzuki later dictionary result
+
+A later Admin2 lookup for `鈴木あいか` with exact Emby Person `43776` returned
+[Minnano-AV](https://www.minnano-av.com/actress107218.html),
+[XsList](https://xslist.org/zh/model/4333.html),
+[JAV.LINK](https://jav.link/jav/airu-oshima/),
+[JAVModel](https://javmodel.com/jav/airu-oshima/), and
+[Babepedia](https://www.babepedia.com/babe/Airu_Oshima). The resolver formed
+`Aika Suzuki (JAP、1991、鈴木あいか)`: Minnano and Babepedia reported
+1991-01-30, XsList 1991-01-29, and JAV.LINK 1991-11-06. Emby Person
+`43776` is now saved under the formed name with birthday 1991-01-30 and
+`MetaTube=Minnano-AV:107218`. Actor DB revision 1 still has a yearless name,
+no exact Person link, and no publication receipt. Keep the birthday/alias and
+artwork hold until exact linked movies and source identities are reviewed.
+
 ## Aika Yumeno exact-Person check
 
 JAV-Master Actor Editor → Emby People maintenance returned exact Emby Person

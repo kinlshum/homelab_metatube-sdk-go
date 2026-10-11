@@ -87,13 +87,19 @@ def recent_resolve_events(name):
         except OSError:
             return []
     events = []
+    seen_requests = set()
     for line in reversed(lines):
         try:
             event = json.loads(line)
         except (ValueError, TypeError):
             continue
+        request_id = event.get("request_id")
+        if request_id and request_id in seen_requests:
+            continue
         if not name or event.get("name") == name:
             events.append(event)
+            if request_id:
+                seen_requests.add(request_id)
         if len(events) >= (20 if name else 50):
             break
     return events
@@ -1127,6 +1133,8 @@ class Handler(BaseHTTPRequestHandler):
         started = time.monotonic()
         event = {"request_id": str(uuid.uuid4()), "started_at": datetime.now(timezone.utc).isoformat(),
                  "name": name[:100], "client_ip": self.client_address[0], "status": "started"}
+        # Make slow or interrupted lookups visible in the Admin request view.
+        append_resolve_event(event)
         try:
             record = resolve(name, query.get("refresh", [""])[0] == "true", event["request_id"])
         except NoActorMatch as error:

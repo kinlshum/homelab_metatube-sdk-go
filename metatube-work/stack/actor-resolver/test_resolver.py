@@ -44,6 +44,27 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual([item["request_id"] for item in resolver.recent_resolve_events("みなと羽琉")], ["two", "one"])
             self.assertEqual(resolver.recent_resolve_events("unknown"), [])
 
+    def test_request_view_shows_started_lookup_then_one_final_receipt(self):
+        handler = resolver.Handler.__new__(resolver.Handler)
+        handler.path = '/resolve?name=%E9%88%B4%E6%9C%A8%E3%81%82%E3%81%84%E3%81%8B'
+        handler.client_address = ('127.0.0.1', 0)
+        handler.send_json = Mock()
+        trace_file = os.path.join(self.temporary.name, 'resolve-events.jsonl')
+
+        def finish_lookup(*_args):
+            in_progress = resolver.recent_resolve_events('鈴木あいか')
+            self.assertEqual(len(in_progress), 1)
+            self.assertEqual(in_progress[0]['status'], 'started')
+            return {'name': 'Aika Suzuki (JAP、鈴木あいか)', 'sources': []}
+
+        with patch.object(resolver, 'TRACE_FILE', trace_file), \
+             patch.object(resolver, 'resolve', side_effect=finish_lookup):
+            handler.do_GET()
+            finished = resolver.recent_resolve_events('鈴木あいか')
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(finished[0]['status'], 'resolved')
+        self.assertEqual(handler.send_json.call_args.args[0], 200)
+
     def test_single_word_stage_name_and_age_label(self):
         for provider in ('XsList', 'Minnano-AV', 'JavLibrary'):
             with self.subTest(provider=provider):

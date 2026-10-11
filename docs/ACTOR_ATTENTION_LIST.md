@@ -217,6 +217,18 @@ found canonical `Aika Suzuki (JAP、鈴木あいか)` owned by Person `43776` wi
 and Japanese `鈴木あいか` owned by **another** Person `502208` with `folder.jpg`.
 Do not copy either alternate into the canonical folder based on name alone.
 
+In the 2.1.97 exact-Person comparison, `43776` has 165 movie links and
+`502208` has zero. Both now have the same saved 1991-01-30 Emby birthday,
+OriginalTitle `鈴木あいか`, Minnano `107218`, XsList `4333`, Babepedia
+`Airu_Oshima`, JAV.LINK `airu-oshima`, and matching debut/measurements.
+These are strong duplicate clues, but only the first 100 of 165 movie
+links were displayed and the two custom People folders remain separate.
+The Actor Editor's exact link preview for Actor DB
+`e42db678-712e-4a8a-922e-2a7c3589c419` and Person `43776` is held
+because the saved Actor DB name omits `1991`; it made no link. Review the
+source-date conflict and remaining movie pages before editing the canonical
+name, linking, copying art, or deleting the zero-link Person.
+
 ## Aika Natsume split Emby Persons
 
 The first read of `6995` found `lookup:Aisha Yuzuki`, AV-LEAGUE `9620`, and
